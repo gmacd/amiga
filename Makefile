@@ -6,6 +6,8 @@
 #   make test      headless: run 300 frames, check two screenshots and the
 #                  debug output, expect exit status 0 (the CLI return code)
 #   make bless     regenerate the expected screenshots from a fresh run
+#   make ndk       copy the NDK headers out of the image into ndk-include/
+#                  for editor navigation (see .clangd); gitignored
 #   make clean
 #
 # Variables: COPPERLINE (binary), MODEL (A1200), ROM (a Kickstart image;
@@ -114,7 +116,15 @@ bless: $(BIN)
 	    --screenshot-after $(SHOT_B) test_images/expected-b.png \
 	    --screenshot-after $(BOUND_AT) test_images/end.png
 
+# Editor support: the NDK headers live only in the image, so copy them
+# out once. host-shim/ replaces the proto/ headers for host tools.
+NDK_DIR = ndk-include
+ndk:
+	docker create --platform linux/amd64 --name demo1-ndk $(IMAGE) >/dev/null
+	docker cp demo1-ndk:/opt/amiga-16.2/m68k-amigaos/$(NDK_DIR) ./$(NDK_DIR)
+	docker rm demo1-ndk >/dev/null
+
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all run test bless clean
+.PHONY: all run test bless ndk clean

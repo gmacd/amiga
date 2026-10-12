@@ -1,0 +1,33 @@
+# clangd configuration for editing without the m68k toolchain. Apple clang
+# has no m68k target, so parse as a 32-bit freestanding target with the same
+# int/long/pointer widths. Headers come from `make ndk` (ndk-include/) with
+# host-shim/ in front to replace the GCC-only inline wrappers. The GCC
+# attribute macros the NDK uses are defined away. Diagnostics are
+# approximate; the Docker build is the authority.
+CompileFlags:
+  Compiler: clang
+  Add:
+    # Headers opened on their own are guessed as C++ (Objective-C++ on
+    # macOS); this is a C project, so parse everything as C.
+    - -xc
+    - --target=i386-unknown-none
+    - -std=c23
+    - -ffreestanding
+    - -Ihost-shim
+    - -Indk-include
+    - -D__stdargs=
+    - -D__regargs=
+    - -D__saveds=
+    - -D__interrupt=
+    - -D__chip=
+    - -D__far=
+    - -D__near=
+    - -D__aligned=
+    - -Wno-unknown-attributes
+    - -Wno-pointer-sign
+  Remove:
+    - -m68020
+    - -fno-toplevel-reorder
+    - -fno-tree-loop-distribute-patterns
+    - -fanalyzer
+    - -Wstack-usage=*

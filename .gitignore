@@ -2,3 +2,4 @@ build/
 test_images/end.png
 test_images/*.actual.png
 test_images/*.diff.png
+ndk-include/

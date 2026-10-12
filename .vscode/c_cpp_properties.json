@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "name": "Amiga (host IntelliSense)",
+      "compilerPath": "/usr/bin/clang",
+      "compilerArgs": ["--target=i386-unknown-none", "-ffreestanding"],
+      "intelliSenseMode": "linux-clang-x86",
+      "cStandard": "c23",
+      "includePath": [
+        "${workspaceFolder}/host-shim",
+        "${workspaceFolder}/ndk-include"
+      ],
+      "defines": [
+        "__stdargs=",
+        "__regargs=",
+        "__saveds=",
+        "__interrupt=",
+        "__chip=",
+        "__far=",
+        "__near=",
+        "__aligned="
+      ]
+    }
+  ],
+  "version": 4
+}
