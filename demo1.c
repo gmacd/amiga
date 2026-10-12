@@ -16,8 +16,7 @@
  *   copperline --model A1200 --run demo1/build/demo1
  */
 
-#include <exec/types.h>
-#include <graphics/gfxbase.h>
+#include <stdint.h>
 
 #include "copper.h"
 #include "debug.h"
@@ -48,39 +47,39 @@ static_assert(START_Y >= 0 && START_Y + BOX <= HEIGHT, "box starts on screen");
 static_assert(HEIGHT < 1024 && ROW_WORDS < 64, "plane fits one BLTSIZE blit");
 
 /* Custom register offsets for the copper list. */
-static constexpr UWORD REG_BPLCON0 = 0x100;
-static constexpr UWORD REG_BPLCON1 = 0x102;
-static constexpr UWORD REG_BPLCON2 = 0x104;
-static constexpr UWORD REG_BPLCON3 = 0x106;
-static constexpr UWORD REG_BPL1MOD = 0x108;
-static constexpr UWORD REG_BPL2MOD = 0x10a;
-static constexpr UWORD REG_BPLCON4 = 0x10c;
-static constexpr UWORD REG_DIWSTRT = 0x08e;
-static constexpr UWORD REG_DIWSTOP = 0x090;
-static constexpr UWORD REG_DDFSTRT = 0x092;
-static constexpr UWORD REG_DDFSTOP = 0x094;
-static constexpr UWORD REG_BPL1PTH = 0x0e0;
-static constexpr UWORD REG_BPL1PTL = 0x0e2;
-static constexpr UWORD REG_COLOR00 = 0x180;
-static constexpr UWORD REG_COLOR01 = 0x182;
-static constexpr UWORD REG_FMODE = 0x1fc;
+static constexpr uint16_t REG_BPLCON0 = 0x100;
+static constexpr uint16_t REG_BPLCON1 = 0x102;
+static constexpr uint16_t REG_BPLCON2 = 0x104;
+static constexpr uint16_t REG_BPLCON3 = 0x106;
+static constexpr uint16_t REG_BPL1MOD = 0x108;
+static constexpr uint16_t REG_BPL2MOD = 0x10a;
+static constexpr uint16_t REG_BPLCON4 = 0x10c;
+static constexpr uint16_t REG_DIWSTRT = 0x08e;
+static constexpr uint16_t REG_DIWSTOP = 0x090;
+static constexpr uint16_t REG_DDFSTRT = 0x092;
+static constexpr uint16_t REG_DDFSTOP = 0x094;
+static constexpr uint16_t REG_BPL1PTH = 0x0e0;
+static constexpr uint16_t REG_BPL1PTL = 0x0e2;
+static constexpr uint16_t REG_COLOR00 = 0x180;
+static constexpr uint16_t REG_COLOR01 = 0x182;
+static constexpr uint16_t REG_FMODE = 0x1fc;
 
-static constexpr UWORD COLOR_YELLOW = 0x0ff0;
-static constexpr UWORD COLOR_RED = 0x0f00;
+static constexpr uint16_t COLOR_YELLOW = 0x0ff0;
+static constexpr uint16_t COLOR_RED = 0x0f00;
 
 /* Words emitted by build_copper(): 16 MOVEs and the end marker. */
-static constexpr ULONG COPPER_WORDS = 16 * 2 + 2;
+static constexpr uint32_t COPPER_WORDS = 16 * 2 + 2;
 
 /* Blitter minterms for blit_box(), as the ABC truth table (bit 7 = ABC
  * down to bit 0 = ~A~B~C): D = A | C sets, D = ~A & C clears. */
-static constexpr UWORD LF_A_OR_C = 0b1111'1010;
-static constexpr UWORD LF_NOTA_AND_C = 0b0000'1010;
+static constexpr uint16_t LF_A_OR_C = 0b1111'1010;
+static constexpr uint16_t LF_NOTA_AND_C = 0b0000'1010;
 
 /* ------------------------------------------------------------------ */
 /* VBlank interrupt.                                                   */
 
 /* Bumped once per frame by the level 3 handler; the main loop waits on it. */
-volatile ULONG frame_counter;
+volatile uint32_t frame_counter;
 
 /* Level 3 autovector handler. Only VERTB is enabled at this level, but the
  * request bit is checked anyway. Acknowledged twice: a single INTREQ write
@@ -102,7 +101,7 @@ __asm__(
 extern void vblank_handler(void);
 
 static void wait_frame(void) {
-  ULONG seen = frame_counter;
+  uint32_t seen = frame_counter;
   while (frame_counter == seen);
 }
 
@@ -115,7 +114,7 @@ static void blit_wait(void) {
 }
 
 /* Zero a whole bitplane: D channel only, minterm 0. */
-static void blit_clear(UBYTE* plane) {
+static void blit_clear(uint8_t* plane) {
   blit_wait();
   CUSTOM->bltcon0 = 0x0100; /* USED, minterm 0        */
   CUSTOM->bltcon1 = 0;
@@ -131,13 +130,13 @@ static void blit_clear(UBYTE* plane) {
  *   fill:  D = A | C
  *   clear: D = ~A & C
  * The box spans one word when 16-pixel aligned, two otherwise. */
-static void blit_box(UBYTE* plane, int x, int y, bool fill) {
+static void blit_box(uint8_t* plane, int x, int y, bool fill) {
   int shift = x & 15;
-  UWORD nwords = shift ? 2 : 1;
-  UWORD fwm = (UWORD)(0xffff >> shift);
-  UWORD lwm = shift ? (UWORD)(0xffff << (16 - shift)) : 0xffff;
-  UWORD mod = (UWORD)(ROW_BYTES - nwords * 2);
-  UBYTE* addr = plane + y * ROW_BYTES + ((x >> 4) << 1);
+  uint16_t nwords = shift ? 2 : 1;
+  uint16_t fwm = (uint16_t)(0xffff >> shift);
+  uint16_t lwm = shift ? (uint16_t)(0xffff << (16 - shift)) : 0xffff;
+  uint16_t mod = (uint16_t)(ROW_BYTES - nwords * 2);
+  uint8_t* addr = plane + y * ROW_BYTES + ((x >> 4) << 1);
 
   blit_wait();
   CUSTOM->bltcon0 = 0x0300 | (fill ? LF_A_OR_C : LF_NOTA_AND_C); /* USEC|USED */
@@ -149,16 +148,16 @@ static void blit_box(UBYTE* plane, int x, int y, bool fill) {
   CUSTOM->bltdpt = addr;
   CUSTOM->bltcmod = mod;
   CUSTOM->bltdmod = mod;
-  CUSTOM->bltsize = (UWORD)((BOX << 6) | nwords);
+  CUSTOM->bltsize = (uint16_t)((BOX << 6) | nwords);
 }
 
 /* ------------------------------------------------------------------ */
 /* Copper list.                                                        */
 
 /* Returns the MOVE pair holding the bitplane pointer, for flipping. */
-static UWORD* build_copper(UWORD* cop, const UBYTE* plane) {
-  UWORD* p = cop;
-  UWORD* bpl1pt;
+static uint16_t* build_copper(uint16_t* cop, const uint8_t* plane) {
+  uint16_t* p = cop;
+  uint16_t* bpl1pt;
 
   p = cop_move(p, REG_FMODE, 0x0000);   /* AGA: OCS-compatible fetch */
   p = cop_move(p, REG_BPLCON0, 0x1200); /* 1 bitplane, colour burst  */
@@ -191,13 +190,13 @@ static bool left_mouse_pressed(void) {
 }
 
 /* Leading decimal number in the CLI arguments, or 0 if there is none. */
-static ULONG parse_frames(const char* args, ULONG length) {
-  ULONG n = 0;
-  ULONG i = 0;
+static uint32_t parse_frames(const char* args, uint32_t length) {
+  uint32_t n = 0;
+  uint32_t i = 0;
 
   while (i < length && (args[i] == ' ' || args[i] == '\t')) i++;
   while (i < length && args[i] >= '0' && args[i] <= '9')
-    n = n * 10 + (ULONG)(args[i++] - '0');
+    n = n * 10 + (uint32_t)(args[i++] - '0');
   return n;
 }
 
@@ -208,12 +207,12 @@ struct box {
   int x, y;
 };
 
-static void run(UBYTE* planes[BUFFERS], UWORD* bpl1pt, ULONG frames) {
+static void run(uint8_t* planes[BUFFERS], uint16_t* bpl1pt, uint32_t frames) {
   struct box pos = {START_X, START_Y};
   struct box drawn[BUFFERS]; /* where each buffer has the box */
   int dx = SPEED_X, dy = SPEED_Y;
   int back = 0; /* buffer being drawn, not shown */
-  ULONG frame;
+  uint32_t frame;
   int i;
 
   for (i = 0; i < BUFFERS; i++) {
@@ -259,21 +258,21 @@ static void run(UBYTE* planes[BUFFERS], UWORD* bpl1pt, ULONG frames) {
   blit_wait();
 }
 
-LONG demo_main(const char* args, ULONG length) {
+int32_t demo_main(const char* args, uint32_t length) {
   struct sys sys;
-  UBYTE* planes[BUFFERS] = {nullptr, nullptr};
-  UWORD* copper = nullptr;
-  UWORD* bpl1pt;
-  ULONG frames = parse_frames(args, length);
-  ULONG old_vector;
-  LONG rc;
+  uint8_t* planes[BUFFERS] = {nullptr, nullptr};
+  uint16_t* copper = nullptr;
+  uint16_t* bpl1pt;
+  uint32_t frames = parse_frames(args, length);
+  uintptr_t old_vector;
+  int32_t rc;
   int i;
 
   /* --- OS phase: libraries, memory, loading ----------------------- */
   rc = sys_init(&sys);
   if (rc) return rc;
   for (i = 0; i < BUFFERS; i++) planes[i] = sys_alloc_chip(PLANE_SIZE);
-  copper = sys_alloc_chip(COPPER_WORDS * sizeof(UWORD));
+  copper = sys_alloc_chip(COPPER_WORDS * sizeof(uint16_t));
   if (!planes[0] || !planes[1] || !copper) {
     rc = 20;
     goto out;
@@ -285,9 +284,9 @@ LONG demo_main(const char* args, ULONG length) {
   /* --- hardware phase: no OS calls between these two lines -------- */
   sys_takeover(&sys);
 
-  old_vector = *(volatile ULONG*)(sys.vbr + VECTOR_LEVEL3);
-  *(volatile ULONG*)(sys.vbr + VECTOR_LEVEL3) = (ULONG)vblank_handler;
-  CUSTOM->cop1lc = (ULONG)copper;
+  old_vector = *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3);
+  *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3) = (uintptr_t)vblank_handler;
+  CUSTOM->cop1lc = (uintptr_t)copper;
   CUSTOM->copjmp1 = 0;
   CUSTOM->dmacon =
       DMAF_SETCLR | DMAF_MASTER | DMAF_RASTER | DMAF_COPPER | DMAF_BLITTER;
@@ -297,7 +296,7 @@ LONG demo_main(const char* args, ULONG length) {
 
   CUSTOM->intena = INTF_INTEN | INTF_VERTB;
   CUSTOM->intreq = INTF_VERTB;
-  *(volatile ULONG*)(sys.vbr + VECTOR_LEVEL3) = old_vector;
+  *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3) = old_vector;
 
   sys_restore(&sys);
   /* --- OS phase again ----------------------------------------------- */
@@ -305,7 +304,7 @@ LONG demo_main(const char* args, ULONG length) {
   DBG("demo1: done after %lu frames\n", frame_counter);
   rc = 0;
 out:
-  sys_free_chip(copper, COPPER_WORDS * sizeof(UWORD));
+  sys_free_chip(copper, COPPER_WORDS * sizeof(uint16_t));
   for (i = 0; i < BUFFERS; i++) sys_free_chip(planes[i], PLANE_SIZE);
   sys_exit(&sys);
   return rc;

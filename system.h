@@ -18,22 +18,26 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-#include <exec/types.h>
+#include <stddef.h>
+#include <stdint.h>
+
+struct GfxBase;
+struct View;
 
 struct sys {
   struct GfxBase* gfx;
-  ULONG vbr; /* vector base: 0 on 68000, else from MOVEC */
+  uintptr_t vbr; /* vector base: 0 on 68000, else from MOVEC */
   struct View* old_view;
-  UWORD old_dmacon;
-  UWORD old_intena;
+  uint16_t old_dmacon;
+  uint16_t old_intena;
 };
 
 /* Open libraries and read the VBR. Returns 0, or a CLI return code. */
-[[nodiscard]] LONG sys_init(struct sys* s);
+[[nodiscard]] int32_t sys_init(struct sys* s);
 
 /* Cleared chip memory, or nullptr. */
-[[nodiscard]] void* sys_alloc_chip(ULONG bytes);
-void sys_free_chip(void* p, ULONG bytes);
+[[nodiscard]] void* sys_alloc_chip(size_t bytes);
+void sys_free_chip(void* p, size_t bytes);
 
 /* Park the OS display and switch every interrupt and DMA channel off.
  * After this the demo owns the machine. */
@@ -47,10 +51,10 @@ void sys_restore(struct sys* s);
 void sys_exit(struct sys* s);
 
 /* Loader side: called by the _start stub with the CLI argument string. */
-LONG entry(const char* args, ULONG length);
+int32_t entry(const char* args, uint32_t length);
 
 /* The demo's entry point, called by entry() with the CLI argument string
  * (empty when started from Workbench). Returns the CLI return code. */
-LONG demo_main(const char* args, ULONG length);
+int32_t demo_main(const char* args, uint32_t length);
 
 #endif

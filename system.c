@@ -63,17 +63,17 @@ __asm__(
 struct ExecBase* SysBase;
 struct GfxBase* GfxBase;
 
-extern ULONG read_vbr(struct ExecBase* sysbase);
+extern uintptr_t read_vbr(struct ExecBase* sysbase);
 
 /*
  * Loader-side wrapper around demo_main(). Started from Workbench (no CLI
  * structure) the process must collect its startup message and reply to it
  * on exit, after Forbid(), so Workbench does not unload the code too early.
  */
-LONG entry(const char* args, ULONG length) {
+int32_t entry(const char* args, uint32_t length) {
   struct Process* self;
   struct Message* wb_msg = nullptr;
-  LONG rc;
+  int32_t rc;
 
   SysBase = *(struct ExecBase**)4;
   self = (struct Process*)FindTask(nullptr);
@@ -93,7 +93,7 @@ LONG entry(const char* args, ULONG length) {
   return rc;
 }
 
-LONG sys_init(struct sys* s) {
+int32_t sys_init(struct sys* s) {
   mem_set(s, 0, sizeof(*s));
 
   GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
@@ -105,11 +105,11 @@ LONG sys_init(struct sys* s) {
   return 0;
 }
 
-void* sys_alloc_chip(ULONG bytes) {
+void* sys_alloc_chip(size_t bytes) {
   return AllocMem(bytes, MEMF_CHIP | MEMF_CLEAR);
 }
 
-void sys_free_chip(void* p, ULONG bytes) {
+void sys_free_chip(void* p, size_t bytes) {
   if (p) FreeMem(p, bytes);
 }
 
@@ -128,7 +128,7 @@ void sys_takeover(struct sys* s) {
 
 void sys_restore(struct sys* s) {
   CUSTOM->dmacon = 0x7fff;
-  CUSTOM->cop1lc = (ULONG)s->gfx->copinit;
+  CUSTOM->cop1lc = (uintptr_t)s->gfx->copinit;
   CUSTOM->copjmp1 = 0;
   CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & 0x07ff);
   CUSTOM->intena = INTF_SETCLR | (s->old_intena & 0x7fff);

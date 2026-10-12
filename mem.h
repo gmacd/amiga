@@ -4,16 +4,17 @@
 #ifndef MEM_H
 #define MEM_H
 
-#include <exec/types.h>
+#include <stddef.h>
+#include <stdint.h>
 
-static inline void mem_set(void* dst, UBYTE value, ULONG bytes) {
-  UBYTE* d = dst;
+static inline void mem_set(void* dst, uint8_t value, size_t bytes) {
+  uint8_t* d = dst;
   while (bytes--) *d++ = value;
 }
 
-static inline void mem_copy(void* dst, const void* src, ULONG bytes) {
-  UBYTE* d = dst;
-  const UBYTE* s = src;
+static inline void mem_copy(void* dst, const void* src, size_t bytes) {
+  uint8_t* d = dst;
+  const uint8_t* s = src;
   while (bytes--) *d++ = *s++;
 }
 
