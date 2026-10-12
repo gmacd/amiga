@@ -14,6 +14,10 @@
 # The blessed screenshots depend on boot timing, so they match the default
 # ROM only; re-bless after changing ROM or MODEL.
 
+# Recipes that tee a log set pipefail first, so a failing Copperline run is
+# not hidden behind the tee (bash: Apple's make 3.81 lacks .SHELLFLAGS).
+SHELL = /bin/bash
+
 COPPERLINE ?= ../Copperline/target/release/copperline
 MODEL      ?= A1200
 ROM        ?=
@@ -56,7 +60,13 @@ LDLIBS  = -lgcc
 BUILD   = build
 BIN     = $(BUILD)/demo1
 OBJS    = $(BUILD)/system.o $(BUILD)/demo1.o
-HDRS    = system.h hardware.h copper.h debug.h mem.h
+MAP     = $(BUILD)/demo1.map
+
+# Header dependencies: each compile writes a .d file beside its object
+# (-MMD, user headers only; -MP adds phony targets so a deleted header
+# does not break the build). Included below so a changed header rebuilds
+# exactly the objects that use it.
+DEPFLAGS = -MMD -MP
 
 # Headless test: the program runs TEST_FRAMES frames (6 s PAL) and returns
 # 0, which --exit-on-return turns into Copperline's exit status. Screenshots
@@ -71,14 +81,18 @@ RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run $(BIN) \
 
 all: $(BIN)
 
+# The link map lists every function and object with its size: the first
+# place to look when the binary grows.
 $(BIN): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDLIBS) -Wl,-Map=$(MAP)
 
-$(BUILD)/system.o: system.c $(HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) $(STUB_CFLAGS) -c $< -o $@
+$(BUILD)/system.o: system.c | $(BUILD)
+	$(CC) $(CFLAGS) $(STUB_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BUILD)/demo1.o: demo1.c $(HDRS) | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/demo1.o: demo1.c | $(BUILD)
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+-include $(OBJS:.o=.d)
 
 $(BUILD):
 	mkdir -p $@
@@ -87,7 +101,7 @@ run: $(BIN)
 	$(COPPERLINE) --factory --model $(MODEL) $(ROM) --run $(BIN)
 
 test: $(BIN)
-	$(COPPERLINE) $(RUN_FLAGS) \
+	set -o pipefail; $(COPPERLINE) $(RUN_FLAGS) \
 	    --expect-screenshot $(SHOT_A) test_images/expected-a.png \
 	    --expect-screenshot $(SHOT_B) test_images/expected-b.png \
 	    --screenshot-after $(BOUND_AT) test_images/end.png 2>&1 | tee $(BUILD)/test.log
