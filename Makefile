@@ -1,7 +1,7 @@
 # demo1: bouncing red box on a yellow screen, built with the same dockerized
 # bebbo m68k-amigaos-gcc image that Copperline's guest/ programs use.
 #
-#   make           build demo1
+#   make           build build/demo1
 #   make run       open Copperline (A1200, bundled AROS ROM) and run it
 #   make test      headless: run 300 frames, check two screenshots and the
 #                  debug output, expect exit status 0 (the CLI return code)
@@ -25,13 +25,16 @@ CC      = $(DOCKER) m68k-amigaos-gcc
 
 # Freestanding: no libc or startup code. system.c carries the entry stub
 # and is linked first so the stub is at the top of the text hunk;
-# -fno-toplevel-reorder keeps it there. -fno-tree-loop-distribute-patterns
-# stops GCC turning the mem.h loops into memset/memcpy calls. -m68020 is
-# the A1200's CPU (native 32-bit multiply). -lgcc covers any helper GCC
-# still emits (64-bit arithmetic, division on 68000 builds).
+# -fno-toplevel-reorder keeps it there, and applies to system.c only since
+# it also stops GCC dropping unreferenced constexpr objects (see
+# STUB_CFLAGS). -fno-tree-loop-distribute-patterns stops GCC turning the
+# mem.h loops into memset/memcpy calls. -m68020 is the A1200's CPU (native
+# 32-bit multiply). -lgcc covers any helper GCC still emits (64-bit
+# arithmetic, division on 68000 builds).
 CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=c23 -nostdlib -nostartfiles \
-          -ffreestanding -fno-toplevel-reorder -fno-tree-loop-distribute-patterns \
+          -ffreestanding -fno-tree-loop-distribute-patterns \
           $(WARNINGS)
+STUB_CFLAGS = -fno-toplevel-reorder
 
 # Warnings are errors. -fanalyzer is GCC's static analyser; -Wstack-usage
 # bounds any one function's frame, since the demo shares the CLI's stack
@@ -50,7 +53,9 @@ CFLAGS += -DNDEBUG
 endif
 LDLIBS  = -lgcc
 
-SRCS    = system.c demo1.c
+BUILD   = build
+BIN     = $(BUILD)/demo1
+OBJS    = $(BUILD)/system.o $(BUILD)/demo1.o
 HDRS    = system.h hardware.h copper.h debug.h mem.h
 
 # Headless test: the program runs TEST_FRAMES frames (6 s PAL) and returns
@@ -61,32 +66,41 @@ TEST_FRAMES = 300
 SHOT_A      = 5
 SHOT_B      = 8
 BOUND_AT    = 40
-RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run demo1 \
+RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run $(BIN) \
               --run-args $(TEST_FRAMES) --exit-on-return --native-screenshots
 
-all: demo1
+all: $(BIN)
 
-demo1: $(SRCS) $(HDRS)
-	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDLIBS)
+$(BIN): $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDLIBS)
 
-run: demo1
-	$(COPPERLINE) --factory --model $(MODEL) $(ROM) --run demo1
+$(BUILD)/system.o: system.c $(HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(STUB_CFLAGS) -c $< -o $@
 
-test: demo1
+$(BUILD)/demo1.o: demo1.c $(HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD):
+	mkdir -p $@
+
+run: $(BIN)
+	$(COPPERLINE) --factory --model $(MODEL) $(ROM) --run $(BIN)
+
+test: $(BIN)
 	$(COPPERLINE) $(RUN_FLAGS) \
 	    --expect-screenshot $(SHOT_A) test_images/expected-a.png \
 	    --expect-screenshot $(SHOT_B) test_images/expected-b.png \
-	    --screenshot-after $(BOUND_AT) test_images/end.png 2>&1 | tee test.log
-	@grep -q "DBG: demo1: done after" test.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
+	    --screenshot-after $(BOUND_AT) test_images/end.png 2>&1 | tee $(BUILD)/test.log
+	@grep -q "DBG: demo1: done after" $(BUILD)/test.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
 	@echo "demo1: PASS"
 
-bless: demo1
+bless: $(BIN)
 	$(COPPERLINE) $(RUN_FLAGS) \
 	    --screenshot-after $(SHOT_A) test_images/expected-a.png \
 	    --screenshot-after $(SHOT_B) test_images/expected-b.png \
 	    --screenshot-after $(BOUND_AT) test_images/end.png
 
 clean:
-	rm -f demo1
+	rm -rf $(BUILD)
 
 .PHONY: all run test bless clean

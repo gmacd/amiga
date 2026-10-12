@@ -12,6 +12,6 @@
 #define CIAA   ((volatile struct CIA *)0xbfe001)
 
 /* Autovector level 3 (VERTB/COPER/BLIT) exception vector offset. */
-#define VECTOR_LEVEL3 0x6c
+static constexpr ULONG VECTOR_LEVEL3 = 0x6c;
 
 #endif

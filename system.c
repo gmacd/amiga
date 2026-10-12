@@ -70,11 +70,11 @@ extern ULONG read_vbr(struct ExecBase *sysbase);
 LONG entry(const char *args, ULONG length)
 {
     struct Process *self;
-    struct Message *wb_msg = NULL;
+    struct Message *wb_msg = nullptr;
     LONG rc;
 
     SysBase = *(struct ExecBase **)4;
-    self = (struct Process *)FindTask(NULL);
+    self = (struct Process *)FindTask(nullptr);
     if (self->pr_CLI == 0) {
         WaitPort(&self->pr_MsgPort);
         wb_msg = GetMsg(&self->pr_MsgPort);
@@ -120,7 +120,7 @@ void sys_free_chip(void *p, ULONG bytes)
 void sys_takeover(struct sys *s)
 {
     s->old_view = s->gfx->ActiView;
-    LoadView(NULL);
+    LoadView(nullptr);
     WaitTOF();
     WaitTOF();
 
@@ -147,5 +147,5 @@ void sys_exit(struct sys *s)
 {
     if (s->gfx)
         CloseLibrary((struct Library *)s->gfx);
-    s->gfx = NULL;
+    s->gfx = nullptr;
 }

@@ -13,7 +13,7 @@
  * Build (bebbo m68k-amigaos-gcc, see Makefile):
  *   make
  * Run:
- *   copperline --model A1200 --run demo1/demo1
+ *   copperline --model A1200 --run demo1/build/demo1
  */
 
 #include <exec/types.h>
@@ -27,42 +27,54 @@
 /* ------------------------------------------------------------------ */
 /* Screen geometry: PAL lo-res, one bitplane, two buffers.             */
 
-#define WIDTH      320
-#define HEIGHT     256
-#define ROW_BYTES  (WIDTH / 8)
-#define ROW_WORDS  (WIDTH / 16)
-#define PLANE_SIZE (ROW_BYTES * HEIGHT)
-#define BUFFERS    2
+static constexpr int WIDTH      = 320;
+static constexpr int HEIGHT     = 256;
+static constexpr int ROW_BYTES  = WIDTH / 8;
+static constexpr int ROW_WORDS  = WIDTH / 16;
+static constexpr int PLANE_SIZE = ROW_BYTES * HEIGHT;
+static constexpr int BUFFERS    = 2;
 
 /* The bouncing box. */
-#define BOX        16
-#define START_X    40
-#define START_Y    30
-#define SPEED_X    3
-#define SPEED_Y    2
+static constexpr int BOX     = 16;
+static constexpr int START_X = 40;
+static constexpr int START_Y = 30;
+static constexpr int SPEED_X = 3;
+static constexpr int SPEED_Y = 2;
+
+static_assert(WIDTH % 16 == 0, "bitplane rows must be whole words");
+static_assert(BOX == 16, "blit_box masks assume a 16-pixel-wide box");
+static_assert(START_X >= 0 && START_X + BOX <= WIDTH, "box starts on screen");
+static_assert(START_Y >= 0 && START_Y + BOX <= HEIGHT, "box starts on screen");
+static_assert(HEIGHT < 1024 && ROW_WORDS < 64, "plane fits one BLTSIZE blit");
 
 /* Custom register offsets for the copper list. */
-#define REG_BPLCON0 0x100
-#define REG_BPLCON1 0x102
-#define REG_BPLCON2 0x104
-#define REG_BPLCON3 0x106
-#define REG_BPL1MOD 0x108
-#define REG_BPL2MOD 0x10a
-#define REG_BPLCON4 0x10c
-#define REG_DIWSTRT 0x08e
-#define REG_DIWSTOP 0x090
-#define REG_DDFSTRT 0x092
-#define REG_DDFSTOP 0x094
-#define REG_BPL1PTH 0x0e0
-#define REG_BPL1PTL 0x0e2
-#define REG_COLOR00 0x180
-#define REG_COLOR01 0x182
-#define REG_FMODE   0x1fc
+static constexpr UWORD REG_BPLCON0 = 0x100;
+static constexpr UWORD REG_BPLCON1 = 0x102;
+static constexpr UWORD REG_BPLCON2 = 0x104;
+static constexpr UWORD REG_BPLCON3 = 0x106;
+static constexpr UWORD REG_BPL1MOD = 0x108;
+static constexpr UWORD REG_BPL2MOD = 0x10a;
+static constexpr UWORD REG_BPLCON4 = 0x10c;
+static constexpr UWORD REG_DIWSTRT = 0x08e;
+static constexpr UWORD REG_DIWSTOP = 0x090;
+static constexpr UWORD REG_DDFSTRT = 0x092;
+static constexpr UWORD REG_DDFSTOP = 0x094;
+static constexpr UWORD REG_BPL1PTH = 0x0e0;
+static constexpr UWORD REG_BPL1PTL = 0x0e2;
+static constexpr UWORD REG_COLOR00 = 0x180;
+static constexpr UWORD REG_COLOR01 = 0x182;
+static constexpr UWORD REG_FMODE   = 0x1fc;
 
-#define COLOR_YELLOW 0x0ff0
-#define COLOR_RED    0x0f00
+static constexpr UWORD COLOR_YELLOW = 0x0ff0;
+static constexpr UWORD COLOR_RED    = 0x0f00;
 
-#define COPPER_WORDS 64       /* room for the list below, with headroom */
+/* Words emitted by build_copper(): 16 MOVEs and the end marker. */
+static constexpr ULONG COPPER_WORDS = 16 * 2 + 2;
+
+/* Blitter minterms for blit_box(), as the ABC truth table (bit 7 = ABC
+ * down to bit 0 = ~A~B~C): D = A | C sets, D = ~A & C clears. */
+static constexpr UWORD LF_A_OR_C     = 0b1111'1010;
+static constexpr UWORD LF_NOTA_AND_C = 0b0000'1010;
 
 /* ------------------------------------------------------------------ */
 /* VBlank interrupt.                                                   */
@@ -108,7 +120,7 @@ static void blit_wait(void)
 static void blit_clear(UBYTE *plane)
 {
     blit_wait();
-    CUSTOM->bltcon0 = 0x0100;                 /* USED, LF = 0           */
+    CUSTOM->bltcon0 = 0x0100;                 /* USED, minterm 0        */
     CUSTOM->bltcon1 = 0;
     CUSTOM->bltdpt = plane;
     CUSTOM->bltdmod = 0;
@@ -119,10 +131,10 @@ static void blit_clear(UBYTE *plane)
  *
  * A is fed from BLTADAT (all ones) with the first/last word masks shaping
  * the box's horizontal extent, C reads the existing plane, D writes it:
- *   fill:  D = A | C      (LF 0xfa)
- *   clear: D = ~A & C     (LF 0x0a)
+ *   fill:  D = A | C
+ *   clear: D = ~A & C
  * The box spans one word when 16-pixel aligned, two otherwise. */
-static void blit_box(UBYTE *plane, int x, int y, int fill)
+static void blit_box(UBYTE *plane, int x, int y, bool fill)
 {
     int shift = x & 15;
     UWORD nwords = shift ? 2 : 1;
@@ -132,7 +144,7 @@ static void blit_box(UBYTE *plane, int x, int y, int fill)
     UBYTE *addr = plane + y * ROW_BYTES + ((x >> 4) << 1);
 
     blit_wait();
-    CUSTOM->bltcon0 = 0x0300 | (fill ? 0xfa : 0x0a);   /* USEC | USED */
+    CUSTOM->bltcon0 = 0x0300 | (fill ? LF_A_OR_C : LF_NOTA_AND_C);  /* USEC|USED */
     CUSTOM->bltcon1 = 0;
     CUSTOM->bltafwm = fwm;
     CUSTOM->bltalwm = lwm;
@@ -171,7 +183,7 @@ static UWORD *build_copper(UWORD *cop, const UBYTE *plane)
     cop_set_ptr(bpl1pt, plane);
     p = cop_move(p, REG_COLOR00, COLOR_YELLOW);
     p = cop_move(p, REG_COLOR01, COLOR_RED);
-    p = cop_end(p);
+    (void)cop_end(p);
 
     return bpl1pt;
 }
@@ -179,7 +191,7 @@ static UWORD *build_copper(UWORD *cop, const UBYTE *plane)
 /* ------------------------------------------------------------------ */
 /* Input and arguments.                                                */
 
-static int left_mouse_pressed(void)
+static bool left_mouse_pressed(void)
 {
     return !(CIAA->ciapra & CIAF_GAMEPORT0);
 }
@@ -215,7 +227,7 @@ static void run(UBYTE *planes[BUFFERS], UWORD *bpl1pt, ULONG frames)
 
     for (i = 0; i < BUFFERS; i++) {
         blit_clear(planes[i]);
-        blit_box(planes[i], pos.x, pos.y, 1);
+        blit_box(planes[i], pos.x, pos.y, true);
         drawn[i] = pos;
     }
     blit_wait();
@@ -247,8 +259,8 @@ static void run(UBYTE *planes[BUFFERS], UWORD *bpl1pt, ULONG frames)
         /* The copper already fetched this frame's pointer at VBlank, so the
          * back buffer is invisible until the flip below takes effect next
          * frame. Erase the box this buffer last showed, draw the new one. */
-        blit_box(planes[back], drawn[back].x, drawn[back].y, 0);
-        blit_box(planes[back], pos.x, pos.y, 1);
+        blit_box(planes[back], drawn[back].x, drawn[back].y, false);
+        blit_box(planes[back], pos.x, pos.y, true);
         drawn[back] = pos;
         cop_set_ptr(bpl1pt, planes[back]);
         back ^= 1;
@@ -259,8 +271,8 @@ static void run(UBYTE *planes[BUFFERS], UWORD *bpl1pt, ULONG frames)
 LONG demo_main(const char *args, ULONG length)
 {
     struct sys sys;
-    UBYTE *planes[BUFFERS] = { NULL, NULL };
-    UWORD *copper = NULL;
+    UBYTE *planes[BUFFERS] = { nullptr, nullptr };
+    UWORD *copper = nullptr;
     UWORD *bpl1pt;
     ULONG frames = parse_frames(args, length);
     ULONG old_vector;
