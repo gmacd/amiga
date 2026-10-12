@@ -14,7 +14,7 @@
  * code. A Workbench start enters the same way with meaningless a0/d0, which
  * entry() detects and ignores.
  */
-asm(
+__asm__(
     "    .text\n"
     "    .globl _start\n"
     "_start:\n"

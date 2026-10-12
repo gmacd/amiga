@@ -29,13 +29,13 @@ CC      = $(DOCKER) m68k-amigaos-gcc
 # stops GCC turning the mem.h loops into memset/memcpy calls. -m68020 is
 # the A1200's CPU (native 32-bit multiply). -lgcc covers any helper GCC
 # still emits (64-bit arithmetic, division on 68000 builds).
-CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=gnu11 -nostdlib -nostartfiles \
+CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=c23 -nostdlib -nostartfiles \
           -ffreestanding -fno-toplevel-reorder -fno-tree-loop-distribute-patterns \
           $(WARNINGS)
 
 # Warnings are errors. -fanalyzer is GCC's static analyser; -Wstack-usage
 # bounds any one function's frame, since the demo shares the CLI's stack
-# with its interrupt handler. gnu11 rather than c11 for the top-level asm.
+# with its interrupt handler. c23: the top-level asm is spelt __asm__ for strict ISO mode.
 WARNINGS = -Werror -Wall -Wextra -Wpedantic \
            -Wconversion -Wsign-conversion -Wshadow \
            -Wcast-qual -Wcast-align=strict -Wpointer-arith -Wwrite-strings -Wundef \

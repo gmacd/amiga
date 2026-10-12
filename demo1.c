@@ -74,7 +74,7 @@ volatile ULONG frame_counter;
  * request bit is checked anyway. Acknowledged twice: a single INTREQ write
  * can be missed on fast 68040/060 machines (the A4000 quirk). Touches no
  * registers, so nothing needs saving. */
-asm(
+__asm__(
     "    .text\n"
     "    .globl _vblank_handler\n"
     "_vblank_handler:\n"
