@@ -1,5 +1,5 @@
 /*
- * system.c -- loader entry and the OS boundary for test1.
+ * system.c -- loader entry and the OS boundary for demo1.
  *
  * This is the only file that calls the operating system. See system.h for
  * the call order the demo follows. The `_start` stub must be the first code
@@ -26,10 +26,20 @@ asm(
     "    movem.l (sp)+,d2-d7/a2-a6\n"
     "    rts\n"
     "\n"
-    "| ULONG read_vbr_super(void): runs under exec's Supervisor(), so MOVEC\n"
-    "| is legal. 68010+ only; the caller checks AttnFlags.\n"
-    "    .globl _read_vbr_super\n"
-    "_read_vbr_super:\n"
+    "| ULONG read_vbr(struct ExecBase *sysbase): the vector base register.\n"
+    "| MOVEC is privileged, so the read runs under exec's Supervisor()\n"
+    "| (LVO -30, function in a5, ends with RTE). The NDK's inline wrapper\n"
+    "| for Supervisor() is not prototype-clean, hence the direct call.\n"
+    "| 68010+ only; the caller checks AttnFlags.\n"
+    "    .globl _read_vbr\n"
+    "_read_vbr:\n"
+    "    movem.l a5/a6,-(sp)\n"
+    "    move.l  12(sp),a6\n"
+    "    lea     read_vbr_super(pc),a5\n"
+    "    jsr     -30(a6)\n"
+    "    movem.l (sp)+,a5/a6\n"
+    "    rts\n"
+    "read_vbr_super:\n"
     "    movec   vbr,d0\n"
     "    rte\n");
 
@@ -50,7 +60,7 @@ asm(
 struct ExecBase *SysBase;
 struct GfxBase *GfxBase;
 
-extern ULONG read_vbr_super(void);
+extern ULONG read_vbr(struct ExecBase *sysbase);
 
 /*
  * Loader-side wrapper around demo_main(). Started from Workbench (no CLI
@@ -92,7 +102,7 @@ LONG sys_init(struct sys *s)
 
     /* 68010 and later have a relocatable vector table. */
     if (SysBase->AttnFlags & AFF_68010)
-        s->vbr = Supervisor((ULONG (*)())read_vbr_super);
+        s->vbr = read_vbr(SysBase);
     return 0;
 }
 

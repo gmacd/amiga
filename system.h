@@ -1,7 +1,7 @@
 /* system.h -- the OS boundary.
  *
  * Everything that talks to exec, dos or graphics.library lives in system.c.
- * The demo (test1.c) only touches hardware and calls these in a fixed
+ * The demo (demo1.c) only touches hardware and calls these in a fixed
  * order:
  *
  *   sys_init          OS calls allowed: libraries opened, VBR known
@@ -14,7 +14,7 @@
  *
  * The CLI/Workbench entry stub is also in system.c; it is the only
  * loader-specific code, so a bootblock or trackmo build replaces that file
- * and keeps test1.c as is. */
+ * and keeps demo1.c as is. */
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
@@ -46,8 +46,11 @@ void sys_restore(struct sys *s);
 
 void sys_exit(struct sys *s);
 
-/* The demo's entry point, called by the loader stub with the CLI argument
- * string (empty when started from Workbench). Returns the CLI return code. */
+/* Loader side: called by the _start stub with the CLI argument string. */
+LONG entry(const char *args, ULONG length);
+
+/* The demo's entry point, called by entry() with the CLI argument string
+ * (empty when started from Workbench). Returns the CLI return code. */
 LONG demo_main(const char *args, ULONG length);
 
 #endif

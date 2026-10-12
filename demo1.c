@@ -1,5 +1,5 @@
 /*
- * test1.c -- Copperline / A1200 bare-metal demo skeleton.
+ * demo1.c -- Copperline / A1200 bare-metal demo skeleton.
  *
  * Yellow background, a red 16x16 box bouncing off the screen edges, drawn
  * by the blitter into a double-buffered single bitplane, paced by a VBlank
@@ -13,7 +13,7 @@
  * Build (bebbo m68k-amigaos-gcc, see Makefile):
  *   make
  * Run:
- *   copperline --model A1200 --run test1/test1
+ *   copperline --model A1200 --run demo1/demo1
  */
 
 #include <exec/types.h>
@@ -125,10 +125,10 @@ static void blit_clear(UBYTE *plane)
 static void blit_box(UBYTE *plane, int x, int y, int fill)
 {
     int shift = x & 15;
-    int nwords = shift ? 2 : 1;
+    UWORD nwords = shift ? 2 : 1;
     UWORD fwm = (UWORD)(0xffff >> shift);
     UWORD lwm = shift ? (UWORD)(0xffff << (16 - shift)) : 0xffff;
-    UWORD mod = ROW_BYTES - nwords * 2;
+    UWORD mod = (UWORD)(ROW_BYTES - nwords * 2);
     UBYTE *addr = plane + y * ROW_BYTES + ((x >> 4) << 1);
 
     blit_wait();
@@ -141,7 +141,7 @@ static void blit_box(UBYTE *plane, int x, int y, int fill)
     CUSTOM->bltdpt = addr;
     CUSTOM->bltcmod = mod;
     CUSTOM->bltdmod = mod;
-    CUSTOM->bltsize = (BOX << 6) | nwords;
+    CUSTOM->bltsize = (UWORD)((BOX << 6) | nwords);
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,7 +193,7 @@ static ULONG parse_frames(const char *args, ULONG length)
     while (i < length && (args[i] == ' ' || args[i] == '\t'))
         i++;
     while (i < length && args[i] >= '0' && args[i] <= '9')
-        n = n * 10 + (args[i++] - '0');
+        n = n * 10 + (ULONG)(args[i++] - '0');
     return n;
 }
 
@@ -223,7 +223,7 @@ static void run(UBYTE *planes[BUFFERS], UWORD *bpl1pt, ULONG frames)
     for (frame = 0; frames == 0 || frame < frames; frame++) {
         wait_frame();
         if (left_mouse_pressed()) {
-            DBG("test1: mouse button at frame %lu\n", frame);
+            DBG("demo1: mouse button at frame %lu\n", frame);
             break;
         }
 
@@ -279,7 +279,7 @@ LONG demo_main(const char *args, ULONG length)
         goto out;
     }
     bpl1pt = build_copper(copper, planes[0]);
-    DBG("test1: frames=%lu vbr=%p planes=%p,%p copper=%p\n",
+    DBG("demo1: frames=%lu vbr=%p planes=%p,%p copper=%p\n",
         frames, (void *)sys.vbr, planes[0], planes[1], copper);
 
     /* --- hardware phase: no OS calls between these two lines -------- */
@@ -302,7 +302,7 @@ LONG demo_main(const char *args, ULONG length)
     sys_restore(&sys);
     /* --- OS phase again ----------------------------------------------- */
 
-    DBG("test1: done after %lu frames\n", frame_counter);
+    DBG("demo1: done after %lu frames\n", frame_counter);
     rc = 0;
 out:
     sys_free_chip(copper, COPPER_WORDS * sizeof(UWORD));

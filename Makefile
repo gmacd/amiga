@@ -1,7 +1,7 @@
-# test1: bouncing red box on a yellow screen, built with the same dockerized
+# demo1: bouncing red box on a yellow screen, built with the same dockerized
 # bebbo m68k-amigaos-gcc image that Copperline's guest/ programs use.
 #
-#   make           build test1
+#   make           build demo1
 #   make run       open Copperline (A1200, bundled AROS ROM) and run it
 #   make test      headless: run 300 frames, check two screenshots and the
 #                  debug output, expect exit status 0 (the CLI return code)
@@ -29,14 +29,28 @@ CC      = $(DOCKER) m68k-amigaos-gcc
 # stops GCC turning the mem.h loops into memset/memcpy calls. -m68020 is
 # the A1200's CPU (native 32-bit multiply). -lgcc covers any helper GCC
 # still emits (64-bit arithmetic, division on 68000 builds).
-CFLAGS  = -Os -m68020 -fomit-frame-pointer -Wall -Wextra -nostdlib -nostartfiles \
-          -ffreestanding -fno-toplevel-reorder -fno-tree-loop-distribute-patterns
+CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=gnu11 -nostdlib -nostartfiles \
+          -ffreestanding -fno-toplevel-reorder -fno-tree-loop-distribute-patterns \
+          $(WARNINGS)
+
+# Warnings are errors. -fanalyzer is GCC's static analyser; -Wstack-usage
+# bounds any one function's frame, since the demo shares the CLI's stack
+# with its interrupt handler. gnu11 rather than c11 for the top-level asm.
+WARNINGS = -Werror -Wall -Wextra -Wpedantic \
+           -Wconversion -Wsign-conversion -Wshadow \
+           -Wcast-qual -Wcast-align=strict -Wpointer-arith -Wwrite-strings -Wundef \
+           -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations \
+           -Wold-style-definition -Wredundant-decls \
+           -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wnull-dereference \
+           -Wjump-misses-init -Wswitch-enum -Wimplicit-fallthrough=5 -Wvla \
+           -Wdouble-promotion -Wformat=2 -Wunused-macros \
+           -fanalyzer -Wstack-usage=128
 ifdef NDEBUG
 CFLAGS += -DNDEBUG
 endif
 LDLIBS  = -lgcc
 
-SRCS    = system.c test1.c
+SRCS    = system.c demo1.c
 HDRS    = system.h hardware.h copper.h debug.h mem.h
 
 # Headless test: the program runs TEST_FRAMES frames (6 s PAL) and returns
@@ -47,33 +61,32 @@ TEST_FRAMES = 300
 SHOT_A      = 5
 SHOT_B      = 8
 BOUND_AT    = 40
-RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run test1 \
+RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run demo1 \
               --run-args $(TEST_FRAMES) --exit-on-return --native-screenshots
 
-all: test1
+all: demo1
 
-test1: $(SRCS) $(HDRS)
+demo1: $(SRCS) $(HDRS)
 	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDLIBS)
 
-run: test1
-	$(COPPERLINE) --factory --model $(MODEL) $(ROM) --run test1
+run: demo1
+	$(COPPERLINE) --factory --model $(MODEL) $(ROM) --run demo1
 
-test: test1
+test: demo1
 	$(COPPERLINE) $(RUN_FLAGS) \
-	    --expect-screenshot $(SHOT_A) expected-a.png \
-	    --expect-screenshot $(SHOT_B) expected-b.png \
-	    --screenshot-after $(BOUND_AT) end.png 2>&1 | tee test.log
-	@grep -q "DBG: test1: done after" test.log || { echo "test1: FAIL (no debug output)"; exit 1; }
-	@echo "test1: PASS"
+	    --expect-screenshot $(SHOT_A) test_images/expected-a.png \
+	    --expect-screenshot $(SHOT_B) test_images/expected-b.png \
+	    --screenshot-after $(BOUND_AT) test_images/end.png 2>&1 | tee test.log
+	@grep -q "DBG: demo1: done after" test.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
+	@echo "demo1: PASS"
 
-bless: test1
+bless: demo1
 	$(COPPERLINE) $(RUN_FLAGS) \
-	    --screenshot-after $(SHOT_A) expected-a.png \
-	    --screenshot-after $(SHOT_B) expected-b.png \
-	    --screenshot-after $(BOUND_AT) end.png
+	    --screenshot-after $(SHOT_A) test_images/expected-a.png \
+	    --screenshot-after $(SHOT_B) test_images/expected-b.png \
+	    --screenshot-after $(BOUND_AT) test_images/end.png
 
 clean:
-	rm -f test1 end.png test.log expected-a.actual.png expected-a.diff.png \
-	      expected-b.actual.png expected-b.diff.png
+	rm -f demo1
 
 .PHONY: all run test bless clean
