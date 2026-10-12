@@ -32,10 +32,16 @@ static inline void dbg_printf(const char* fmt, ...) {
 
   va_start(ap, fmt);
   for (s = fmt; *s; s++) {
-    if (*s != '%') continue;
+    if (*s != '%') {
+      continue;
+    }
     s++;
-    if (*s == '%') continue; /* literal percent */
-    if (*s == '\0') break;
+    if (*s == '%') {
+      continue; /* literal percent */
+    }
+    if (*s == '\0') {
+      break;
+    }
     *DBG_ARG_PORT = va_arg(ap, uint32_t); /* one argument per conversion */
   }
   va_end(ap);

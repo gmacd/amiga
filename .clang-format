@@ -1,1 +1,3 @@
 BasedOnStyle: Google
+# Every if/else/for/while body gets braces, even single statements.
+InsertBraces: true

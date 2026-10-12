@@ -33,3 +33,8 @@ CompileFlags:
     - -fno-tree-loop-distribute-patterns
     - -fanalyzer
     - -Wstack-usage=*
+Diagnostics:
+  ClangTidy:
+    Add:
+      # Flag any if/else/for/while body without braces, in the editor.
+      - readability-braces-around-statements

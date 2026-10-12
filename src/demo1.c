@@ -102,7 +102,9 @@ extern void vblank_handler(void);
 
 static void wait_frame(void) {
   uint32_t seen = frame_counter;
-  while (frame_counter == seen);
+  while (frame_counter == seen) {
+    /* spin: the VBlank handler bumps the counter */
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,7 +112,9 @@ static void wait_frame(void) {
 
 static void blit_wait(void) {
   (void)CUSTOM->dmaconr; /* A1000 Agnus read quirk */
-  while (CUSTOM->dmaconr & DMAF_BLTDONE);
+  while (CUSTOM->dmaconr & DMAF_BLTDONE) {
+    /* spin: BBUSY clears when the blit is done */
+  }
 }
 
 /* Zero a whole bitplane: D channel only, minterm 0. */
@@ -194,9 +198,12 @@ static uint32_t parse_frames(const char* args, uint32_t length) {
   uint32_t n = 0;
   uint32_t i = 0;
 
-  while (i < length && (args[i] == ' ' || args[i] == '\t')) i++;
-  while (i < length && args[i] >= '0' && args[i] <= '9')
+  while (i < length && (args[i] == ' ' || args[i] == '\t')) {
+    i++;
+  }
+  while (i < length && args[i] >= '0' && args[i] <= '9') {
     n = n * 10 + (uint32_t)(args[i++] - '0');
+  }
   return n;
 }
 
@@ -270,8 +277,12 @@ int32_t demo_main(const char* args, uint32_t length) {
 
   /* --- OS phase: libraries, memory, loading ----------------------- */
   rc = sys_init(&sys);
-  if (rc) return rc;
-  for (i = 0; i < BUFFERS; i++) planes[i] = sys_alloc_chip(PLANE_SIZE);
+  if (rc) {
+    return rc;
+  }
+  for (i = 0; i < BUFFERS; i++) {
+    planes[i] = sys_alloc_chip(PLANE_SIZE);
+  }
   copper = sys_alloc_chip(COPPER_WORDS * sizeof(uint16_t));
   if (!planes[0] || !planes[1] || !copper) {
     rc = 20;
@@ -305,7 +316,9 @@ int32_t demo_main(const char* args, uint32_t length) {
   rc = 0;
 out:
   sys_free_chip(copper, COPPER_WORDS * sizeof(uint16_t));
-  for (i = 0; i < BUFFERS; i++) sys_free_chip(planes[i], PLANE_SIZE);
+  for (i = 0; i < BUFFERS; i++) {
+    sys_free_chip(planes[i], PLANE_SIZE);
+  }
   sys_exit(&sys);
   return rc;
 }

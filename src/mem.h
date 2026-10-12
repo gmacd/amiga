@@ -9,13 +9,17 @@
 
 static inline void mem_set(void* dst, uint8_t value, size_t bytes) {
   uint8_t* d = dst;
-  while (bytes--) *d++ = value;
+  while (bytes--) {
+    *d++ = value;
+  }
 }
 
 static inline void mem_copy(void* dst, const void* src, size_t bytes) {
   uint8_t* d = dst;
   const uint8_t* s = src;
-  while (bytes--) *d++ = *s++;
+  while (bytes--) {
+    *d++ = *s++;
+  }
 }
 
 #endif

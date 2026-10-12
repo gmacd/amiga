@@ -97,11 +97,15 @@ int32_t sys_init(struct sys* s) {
   mem_set(s, 0, sizeof(*s));
 
   GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
-  if (!GfxBase) return 20;
+  if (!GfxBase) {
+    return 20;
+  }
   s->gfx = GfxBase;
 
   /* 68010 and later have a relocatable vector table. */
-  if (SysBase->AttnFlags & AFF_68010) s->vbr = read_vbr(SysBase);
+  if (SysBase->AttnFlags & AFF_68010) {
+    s->vbr = read_vbr(SysBase);
+  }
   return 0;
 }
 
@@ -110,7 +114,9 @@ void* sys_alloc_chip(size_t bytes) {
 }
 
 void sys_free_chip(void* p, size_t bytes) {
-  if (p) FreeMem(p, bytes);
+  if (p) {
+    FreeMem(p, bytes);
+  }
 }
 
 void sys_takeover(struct sys* s) {
@@ -138,6 +144,8 @@ void sys_restore(struct sys* s) {
 }
 
 void sys_exit(struct sys* s) {
-  if (s->gfx) CloseLibrary((struct Library*)s->gfx);
+  if (s->gfx) {
+    CloseLibrary((struct Library*)s->gfx);
+  }
   s->gfx = nullptr;
 }

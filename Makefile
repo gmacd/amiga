@@ -9,6 +9,10 @@
 #   make adf       build/demo1.adf: a bootable 880K floppy image
 #   make test-adf  boot that floppy headless, check a screenshot, exit via
 #                  a scheduled mouse click (bless with make bless-adf)
+#   make format    clang-format the sources in place (.clang-format)
+#   make check-format  fail if any source is not formatted; for CI/hooks
+#   make tidy      clang-tidy checks from .clangd (braces around statements)
+#   make tools-image   build the local image the three targets above use
 #   make ndk       copy the NDK headers out of the image into ndk-include/
 #                  for editor navigation (see .clangd); gitignored
 #   make clean
@@ -29,6 +33,11 @@ MODEL      ?= A1200
 ROM        ?=
 
 IMAGE   = stefanreinauer/amiga-gcc:gcc-v16.2
+# Format/lint tools (Dockerfile): the compiler image plus clang-format and
+# clang-tidy, built locally once with `make tools-image`.
+TOOLS_IMAGE = demo1-tools
+TOOLS   = docker run --rm --platform linux/amd64 --user $(shell id -u):$(shell id -g) \
+          -v "$(CURDIR):/src" -w /src $(TOOLS_IMAGE)
 DOCKER  = docker run --rm --platform linux/amd64 --user $(shell id -u):$(shell id -g) \
           -v "$(CURDIR):/src" -w /src $(IMAGE)
 CC      = $(DOCKER) m68k-amigaos-gcc
@@ -148,10 +157,34 @@ bless: $(BIN)
 	    --screenshot-after $(SHOT_B) test_images/expected-b.png \
 	    --screenshot-after $(BOUND_AT) test_images/end.png
 
+SOURCES = $(wildcard $(SRC)/*.c $(SRC)/*.h)
+
+# clang-tidy parses as host clang does in the editor: 32-bit target, the
+# prototype-only host-shim/ in front of the NDK, GCC attribute macros
+# defined away. The checks come from .clangd (readability-braces-...).
+TIDY_FLAGS = --target=i386-unknown-none -std=c23 -ffreestanding \
+             -Ihost-shim -Indk-include -D__stdargs= -D__regargs= -D__saveds= \
+             -D__interrupt= -D__chip= -D__far= -D__near= -D__aligned= \
+             -Wno-unknown-attributes -Wno-pointer-sign
+
+tools-image: Dockerfile
+	docker build --platform linux/amd64 -t $(TOOLS_IMAGE) .
+
+format:
+	$(TOOLS) clang-format --style=file -i $(SOURCES)
+
+check-format:
+	$(TOOLS) clang-format --style=file --dry-run -Werror $(SOURCES)
+
+tidy: | $(NDK_DIR)
+	$(TOOLS) clang-tidy --quiet --warnings-as-errors='*' \
+	    --checks=-*,readability-braces-around-statements \
+	    $(wildcard $(SRC)/*.c) -- $(TIDY_FLAGS)
+
 # Editor support: the NDK headers live only in the image, so copy them
 # out once. host-shim/ replaces the proto/ headers for host tools.
 NDK_DIR = ndk-include
-ndk:
+$(NDK_DIR) ndk:
 	docker create --platform linux/amd64 --name demo1-ndk $(IMAGE) >/dev/null
 	docker cp demo1-ndk:/opt/amiga-16.2/m68k-amigaos/$(NDK_DIR) ./$(NDK_DIR)
 	docker rm demo1-ndk >/dev/null
@@ -159,4 +192,4 @@ ndk:
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all run test bless adf test-adf bless-adf ndk clean
+.PHONY: all run test bless adf test-adf bless-adf format check-format tidy tools-image ndk clean
