@@ -6,19 +6,15 @@
 
 #include <exec/types.h>
 
-static inline void mem_set(void *dst, UBYTE value, ULONG bytes)
-{
-    UBYTE *d = dst;
-    while (bytes--)
-        *d++ = value;
+static inline void mem_set(void* dst, UBYTE value, ULONG bytes) {
+  UBYTE* d = dst;
+  while (bytes--) *d++ = value;
 }
 
-static inline void mem_copy(void *dst, const void *src, ULONG bytes)
-{
-    UBYTE *d = dst;
-    const UBYTE *s = src;
-    while (bytes--)
-        *d++ = *s++;
+static inline void mem_copy(void* dst, const void* src, ULONG bytes) {
+  UBYTE* d = dst;
+  const UBYTE* s = src;
+  while (bytes--) *d++ = *s++;
 }
 
 #endif

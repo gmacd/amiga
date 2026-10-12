@@ -14,6 +14,7 @@
  * code. A Workbench start enters the same way with meaningless a0/d0, which
  * entry() detects and ignores.
  */
+/* clang-format off */
 __asm__(
     "    .text\n"
     "    .globl _start\n"
@@ -42,12 +43,15 @@ __asm__(
     "read_vbr_super:\n"
     "    movec   vbr,d0\n"
     "    rte\n");
+/* clang-format on */
 
-#include <exec/types.h>
+#include "system.h"
+
+#include <dos/dosextens.h>
 #include <exec/execbase.h>
 #include <exec/memory.h>
 #include <exec/ports.h>
-#include <dos/dosextens.h>
+#include <exec/types.h>
 #include <graphics/gfxbase.h>
 #include <graphics/view.h>
 #include <proto/exec.h>
@@ -55,97 +59,85 @@ __asm__(
 
 #include "hardware.h"
 #include "mem.h"
-#include "system.h"
 
-struct ExecBase *SysBase;
-struct GfxBase *GfxBase;
+struct ExecBase* SysBase;
+struct GfxBase* GfxBase;
 
-extern ULONG read_vbr(struct ExecBase *sysbase);
+extern ULONG read_vbr(struct ExecBase* sysbase);
 
 /*
  * Loader-side wrapper around demo_main(). Started from Workbench (no CLI
  * structure) the process must collect its startup message and reply to it
  * on exit, after Forbid(), so Workbench does not unload the code too early.
  */
-LONG entry(const char *args, ULONG length)
-{
-    struct Process *self;
-    struct Message *wb_msg = nullptr;
-    LONG rc;
+LONG entry(const char* args, ULONG length) {
+  struct Process* self;
+  struct Message* wb_msg = nullptr;
+  LONG rc;
 
-    SysBase = *(struct ExecBase **)4;
-    self = (struct Process *)FindTask(nullptr);
-    if (self->pr_CLI == 0) {
-        WaitPort(&self->pr_MsgPort);
-        wb_msg = GetMsg(&self->pr_MsgPort);
-        args = "";
-        length = 0;
-    }
+  SysBase = *(struct ExecBase**)4;
+  self = (struct Process*)FindTask(nullptr);
+  if (self->pr_CLI == 0) {
+    WaitPort(&self->pr_MsgPort);
+    wb_msg = GetMsg(&self->pr_MsgPort);
+    args = "";
+    length = 0;
+  }
 
-    rc = demo_main(args, length);
+  rc = demo_main(args, length);
 
-    if (wb_msg) {
-        Forbid();
-        ReplyMsg(wb_msg);
-    }
-    return rc;
+  if (wb_msg) {
+    Forbid();
+    ReplyMsg(wb_msg);
+  }
+  return rc;
 }
 
-LONG sys_init(struct sys *s)
-{
-    mem_set(s, 0, sizeof(*s));
+LONG sys_init(struct sys* s) {
+  mem_set(s, 0, sizeof(*s));
 
-    GfxBase = (struct GfxBase *)OpenLibrary("graphics.library", 33);
-    if (!GfxBase)
-        return 20;
-    s->gfx = GfxBase;
+  GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
+  if (!GfxBase) return 20;
+  s->gfx = GfxBase;
 
-    /* 68010 and later have a relocatable vector table. */
-    if (SysBase->AttnFlags & AFF_68010)
-        s->vbr = read_vbr(SysBase);
-    return 0;
+  /* 68010 and later have a relocatable vector table. */
+  if (SysBase->AttnFlags & AFF_68010) s->vbr = read_vbr(SysBase);
+  return 0;
 }
 
-void *sys_alloc_chip(ULONG bytes)
-{
-    return AllocMem(bytes, MEMF_CHIP | MEMF_CLEAR);
+void* sys_alloc_chip(ULONG bytes) {
+  return AllocMem(bytes, MEMF_CHIP | MEMF_CLEAR);
 }
 
-void sys_free_chip(void *p, ULONG bytes)
-{
-    if (p)
-        FreeMem(p, bytes);
+void sys_free_chip(void* p, ULONG bytes) {
+  if (p) FreeMem(p, bytes);
 }
 
-void sys_takeover(struct sys *s)
-{
-    s->old_view = s->gfx->ActiView;
-    LoadView(nullptr);
-    WaitTOF();
-    WaitTOF();
+void sys_takeover(struct sys* s) {
+  s->old_view = s->gfx->ActiView;
+  LoadView(nullptr);
+  WaitTOF();
+  WaitTOF();
 
-    s->old_dmacon = CUSTOM->dmaconr;
-    s->old_intena = CUSTOM->intenar;
-    CUSTOM->intena = 0x7fff;          /* every interrupt source off */
-    CUSTOM->intreq = 0x7fff;          /* and nothing left pending   */
-    CUSTOM->dmacon = 0x7fff;          /* every DMA channel off      */
+  s->old_dmacon = CUSTOM->dmaconr;
+  s->old_intena = CUSTOM->intenar;
+  CUSTOM->intena = 0x7fff; /* every interrupt source off */
+  CUSTOM->intreq = 0x7fff; /* and nothing left pending   */
+  CUSTOM->dmacon = 0x7fff; /* every DMA channel off      */
 }
 
-void sys_restore(struct sys *s)
-{
-    CUSTOM->dmacon = 0x7fff;
-    CUSTOM->cop1lc = (ULONG)s->gfx->copinit;
-    CUSTOM->copjmp1 = 0;
-    CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & 0x07ff);
-    CUSTOM->intena = INTF_SETCLR | (s->old_intena & 0x7fff);
-    LoadView(s->old_view);
-    WaitTOF();
-    WaitTOF();
+void sys_restore(struct sys* s) {
+  CUSTOM->dmacon = 0x7fff;
+  CUSTOM->cop1lc = (ULONG)s->gfx->copinit;
+  CUSTOM->copjmp1 = 0;
+  CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & 0x07ff);
+  CUSTOM->intena = INTF_SETCLR | (s->old_intena & 0x7fff);
+  LoadView(s->old_view);
+  WaitTOF();
+  WaitTOF();
 }
 
-void sys_exit(struct sys *s)
-{
-    if (s->gfx)
-        CloseLibrary((struct Library *)s->gfx);
-    s->gfx = nullptr;
+void sys_exit(struct sys* s) {
+  if (s->gfx) CloseLibrary((struct Library*)s->gfx);
+  s->gfx = nullptr;
 }

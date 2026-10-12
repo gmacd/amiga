@@ -23,27 +23,23 @@
 #include <exec/types.h>
 #include <stdarg.h>
 
-#define DBG_ARG_PORT ((volatile ULONG *)0xbfff00)
-#define DBG_FMT_PORT ((volatile ULONG *)0xbfff04)
+#define DBG_ARG_PORT ((volatile ULONG*)0xbfff00)
+#define DBG_FMT_PORT ((volatile ULONG*)0xbfff04)
 
-static inline void dbg_printf(const char *fmt, ...)
-{
-    va_list ap;
-    const char *s;
+static inline void dbg_printf(const char* fmt, ...) {
+  va_list ap;
+  const char* s;
 
-    va_start(ap, fmt);
-    for (s = fmt; *s; s++) {
-        if (*s != '%')
-            continue;
-        s++;
-        if (*s == '%')
-            continue;                       /* literal percent */
-        if (*s == '\0')
-            break;
-        *DBG_ARG_PORT = va_arg(ap, ULONG);  /* one argument per conversion */
-    }
-    va_end(ap);
-    *DBG_FMT_PORT = (ULONG)fmt;
+  va_start(ap, fmt);
+  for (s = fmt; *s; s++) {
+    if (*s != '%') continue;
+    s++;
+    if (*s == '%') continue; /* literal percent */
+    if (*s == '\0') break;
+    *DBG_ARG_PORT = va_arg(ap, ULONG); /* one argument per conversion */
+  }
+  va_end(ap);
+  *DBG_FMT_PORT = (ULONG)fmt;
 }
 
 #define DBG(...) dbg_printf(__VA_ARGS__)
