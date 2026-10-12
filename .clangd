@@ -13,8 +13,10 @@ CompileFlags:
     - --target=i386-unknown-none
     - -std=c23
     - -ffreestanding
-    - -Ihost-shim
-    - -Indk-include
+    # Relative to the source file's directory (src/), since there is no
+    # compilation database.
+    - -I../host-shim
+    - -I../ndk-include
     - -D__stdargs=
     - -D__regargs=
     - -D__saveds=

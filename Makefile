@@ -63,6 +63,7 @@ CFLAGS += -DNDEBUG
 endif
 LDLIBS  = -lgcc
 
+SRC     = src
 BUILD   = build
 BIN     = $(BUILD)/demo1
 OBJS    = $(BUILD)/system.o $(BUILD)/demo1.o
@@ -93,11 +94,9 @@ all: $(BIN)
 $(BIN): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDLIBS) -Wl,-Map=$(MAP)
 
-$(BUILD)/system.o: system.c | $(BUILD)
-	$(CC) $(CFLAGS) $(STUB_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILD)/demo1.o: demo1.c | $(BUILD)
-	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+$(BUILD)/system.o: STUB = $(STUB_CFLAGS)
+$(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
+	$(CC) $(CFLAGS) $(STUB) $(DEPFLAGS) -c $< -o $@
 
 -include $(OBJS:.o=.d)
 
