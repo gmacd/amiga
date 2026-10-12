@@ -1,0 +1,57 @@
+[2026-10-12T21:57:09Z INFO  copperline] run: booting test1 (/Volumes/Code/amiga/test1 mounted as RunProg:)
+[2026-10-12T21:57:09Z INFO  copperline::config::resolve] no ROM specified; booting bundled AROS (/Volumes/Code/amiga/test1/../Copperline/assets/aros/aros-amiga-m68k-rom.bin)
+[2026-10-12T21:57:09Z INFO  copperline] config: cpu=M68EC020 fpu=false cpu_clock=14.18MHz chip_ram=2048K fast_ram=0K slow_ram=0K z3_ram=0K zorro_boards=0 chipset=Aga (agnus=AgaAlice denise=AgaLisa) video=Pal rom=/Volumes/Code/amiga/test1/../Copperline/assets/aros/aros-amiga-m68k-rom.bin (bundled AROS) floppy_drives=1
+[2026-10-12T21:57:09Z INFO  copperline] chipset AGA: bitplanes/palette/RDRAM/FMODE fetch, sprites (wide fetch, manual wide, SSCAN2/BSCAN2 scan doubling, BPLCON3 SPRES, BPLCON4 offsets) and CLXCON2 collisions are implemented; residual gaps: AGA DDF fine granularity, live collisions on the 6-plane decode (docs/internals/chipset.md)
+[2026-10-12T21:57:09Z INFO  copperline] audio: disabled (null sink); no sound
+[2026-10-12T21:57:09Z INFO  copperline] emulation timing: deterministic core, paced=false
+[2026-10-12T21:57:09Z INFO  copperline::emulator] romtags: the ROM's scsi.device will not be initialised
+[2026-10-12T21:57:09Z INFO  copperline::emulator] filesys: services board on the Zorro chain (slot 0), 2 mount(s), clipboard off
+[2026-10-12T21:57:09Z INFO  copperline::emulator] extended ROM: /Volumes/Code/amiga/test1/../Copperline/assets/aros/aros-amiga-m68k-ext.bin at 0xE00000
+[2026-10-12T21:57:09Z INFO  copperline::emulator] uaelib: WinUAE-compatible trap at $F0FF60 (guest warp toggle, debug log, resources)
+[2026-10-12T21:57:09Z INFO  copperline::emulator] input: port 1 = mouse, port 2 = joystick
+[2026-10-12T21:57:09Z INFO  copperline::emulator] machine profile: A1200 (gate array GayleA1200, rtc none)
+[2026-10-12T21:57:09Z INFO  copperline::emulator] cpu speed: 14.19 MHz (4x colour clock), fast RAM at CPU speed
+[2026-10-12T21:57:09Z INFO  copperline::emulator] real pacing budget: returned m68k cycles plus explicit chip-bus waits
+[2026-10-12T21:57:09Z INFO  copperline::cpu] cpu cache emulation: icache=true dcache=false (CACR-controlled)
+[2026-10-12T21:57:09Z INFO  copperline::video::window] threaded render pipeline enabled
+[2026-10-12T21:57:09Z INFO  copperline] headless capture: running without a window (no display connection)
+[2026-10-12T21:57:09Z INFO  copperline::video::window] auto-screenshot armed: will save end.png after 40.0s emulated time
+[2026-10-12T21:57:09Z INFO  copperline::video::window] screenshot expectation armed: will compare with expected-a.png after 5.0s emulated time (tolerance exact)
+[2026-10-12T21:57:09Z INFO  copperline::video::window] screenshot expectation armed: will compare with expected-b.png after 8.0s emulated time (tolerance exact)
+ROMInfo: 1MiB ROM detected
+ROMInfo: ROM region(s)..
+ROMInfo:     0x00e00000 - 0x00e7ffff
+ROMInfo:     0x00f80000 - 0x00ffffff
+Found board 00e80000: mfg=5192 prod=2 size=00010000 serial=00010000 diag=00000000
+[2026-10-12T21:57:09Z INFO  copperline::zorro] zorro II board "Copperline" autoconfigured at 0x00E90000
+Configuring board: cd=00001a98 mfg=5192 prod=2 size=00010000 type=c1
+-> configured, 00e90000 - 00e9ffff
+Found board 00e80000: mfg=5192 prod=5 size=00010000 serial=00000000 diag=00000048
+[2026-10-12T21:57:09Z INFO  copperline::zorro] zorro II board "Copperline services" autoconfigured at 0x00EA0000
+Configuring board: cd=00001ae0 mfg=5192 prod=5 size=00010000 type=d1
+-> configured, 00ea0000 - 00eaffff
+callroms
+Read boot ROM base=00e90000 cd=00001a98 type=c1
+Board without boot ROM
+Read boot ROM base=00ea0000 cd=00001ae0 type=d1
+da_Config=90
+Size=0062 DiagPoint=000e BootPoint=0014 Name=0056
+Name='Copperline'
+[2026-10-12T21:57:09Z INFO  copperline::filesys] filesys: expansion init at board 0x00EA0000, 2 mount(s)
+[2026-10-12T21:57:09Z INFO  copperline::filesys] romtags: 0 ROM scsi.device resident(s) culled
+Call boot rom @00007dbe board 00ea0000 diag 00007db0 configdev 00001ae0
+->success
+callroms done
+00000400: 00000400 - 00200000 00001703 -10 'chip memory'
+00001528: 00f80000 - 01000000 00000400 -128 'Kickstart ROM'
+00001548: 00e00000 - 00e80000 00000400 -128 'Kickstart ROM'
+romtaginit
+Diag board 00ea0000 InitResident 00007dec (V=0 P=20 F=01 'Copperline' 'Copperline')
+romtaginit done
+[2026-10-12T21:57:09Z INFO  copperline::filesys] filesys: HOSTFS0: handler started (RunBoot: -> /Users/graham/Documents/Copperline/run/boot-48073)
+[2026-10-12T21:57:09Z INFO  copperline::filesys] filesys: HOSTFS1: handler started (RunProg: -> /Volumes/Code/amiga/test1)
+DBG: test1: frames=300 vbr=$00000000 planes=$0003e908,$00041108 copper=$0003d6b8
+[2026-10-12T21:57:10Z INFO  copperline::expect] expect-screenshot: expected-a.png: OK (0 of 81920 pixels differ, tolerance exact)
+[2026-10-12T21:57:11Z INFO  copperline::expect] expect-screenshot: expected-b.png: OK (0 of 81920 pixels differ, tolerance exact)
+DBG: test1: done after 300 frames
+[2026-10-12T21:57:12Z INFO  copperline::video::window] run: program returned 0 at 9.074s emulated time
