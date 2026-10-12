@@ -6,6 +6,9 @@
 #   make test      headless: run 300 frames, check two screenshots and the
 #                  debug output, expect exit status 0 (the CLI return code)
 #   make bless     regenerate the expected screenshots from a fresh run
+#   make adf       build/demo1.adf: a bootable 880K floppy image
+#   make test-adf  boot that floppy headless, check a screenshot, exit via
+#                  a scheduled mouse click (bless with make bless-adf)
 #   make ndk       copy the NDK headers out of the image into ndk-include/
 #                  for editor navigation (see .clangd); gitignored
 #   make clean
@@ -21,6 +24,7 @@
 SHELL = /bin/bash
 
 COPPERLINE ?= ../Copperline/target/release/copperline
+COPPERLINE_CTL ?= ../Copperline/target/release/copperline-ctl
 MODEL      ?= A1200
 ROM        ?=
 
@@ -63,6 +67,7 @@ BUILD   = build
 BIN     = $(BUILD)/demo1
 OBJS    = $(BUILD)/system.o $(BUILD)/demo1.o
 MAP     = $(BUILD)/demo1.map
+ADF     = $(BUILD)/demo1.adf
 
 # Header dependencies: each compile writes a .d file beside its object
 # (-MMD, user headers only; -MP adds phony targets so a deleted header
@@ -110,6 +115,34 @@ test: $(BIN)
 	@grep -q "DBG: demo1: done after" $(BUILD)/test.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
 	@echo "demo1: PASS"
 
+# Bootable floppy: the executable plus an S/Startup-Sequence that runs it.
+# No arguments reach the program from a floppy boot, so it runs until the
+# mouse button; the headless test clicks for it. Booting from floppy is
+# slower than --run: the demo is on screen at about 9 s with the AROS ROM.
+ADF_SHOT    = 12
+ADF_CLICK   = 16
+ADF_END     = 18
+ADF_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) \
+              --insert-disk-after 0 df0 $(ADF) --native-screenshots \
+              --click-after $(ADF_CLICK) left 100
+
+adf: $(ADF)
+
+$(ADF): $(BIN)
+	$(COPPERLINE_CTL) exe2adf $(BIN) --boot --out $@
+
+test-adf: $(ADF)
+	set -o pipefail; $(COPPERLINE) $(ADF_FLAGS) \
+	    --expect-screenshot $(ADF_SHOT) test_images/expected-adf.png \
+	    --screenshot-after $(ADF_END) test_images/end.png 2>&1 | tee $(BUILD)/test-adf.log
+	@grep -q "DBG: demo1: done after" $(BUILD)/test-adf.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
+	@echo "demo1: PASS (floppy)"
+
+bless-adf: $(ADF)
+	$(COPPERLINE) $(ADF_FLAGS) \
+	    --screenshot-after $(ADF_SHOT) test_images/expected-adf.png \
+	    --screenshot-after $(ADF_END) test_images/end.png
+
 bless: $(BIN)
 	$(COPPERLINE) $(RUN_FLAGS) \
 	    --screenshot-after $(SHOT_A) test_images/expected-a.png \
@@ -127,4 +160,4 @@ ndk:
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all run test bless ndk clean
+.PHONY: all run test bless adf test-adf bless-adf ndk clean
