@@ -24,8 +24,20 @@ static inline uint16_t* cop_wait(uint16_t* p, uint16_t x, uint16_t y) {
   return p;
 }
 
+/* MOVE a 32-bit address into a pointer register pair: `reg` is the high
+ * word's offset, e.g. REG(bplpt[0]). Returns the pair, for cop_set_ptr()
+ * to repoint later; the next free word is the pair + 4. */
+static inline uint16_t* cop_move_ptr(uint16_t* p, uint16_t reg,
+                                     const void* address) {
+  p[0] = reg;
+  p[1] = (uint16_t)((uintptr_t)address >> 16);
+  p[2] = (uint16_t)(reg + 2);
+  p[3] = (uint16_t)((uintptr_t)address & 0xffff);
+  return p;
+}
+
 /* Patch a 32-bit address into the two value words of a hi/lo pointer
- * pair emitted as cop_move(REG_xxxPTH) followed by cop_move(REG_xxxPTL). */
+ * pair emitted by cop_move_ptr(). */
 static inline void cop_set_ptr(uint16_t* pair, const void* address) {
   pair[1] = (uint16_t)((uintptr_t)address >> 16);
   pair[3] = (uint16_t)((uintptr_t)address & 0xffff);

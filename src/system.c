@@ -27,7 +27,7 @@ __asm__(
     "    movem.l (sp)+,d2-d7/a2-a6\n"
     "    rts\n"
     "\n"
-    "| ULONG read_vbr(struct ExecBase *sysbase): the vector base register.\n"
+    "| uintptr_t read_vbr(struct ExecBase *sysbase): the vector base register.\n"
     "| MOVEC is privileged, so the read runs under exec's Supervisor()\n"
     "| (LVO -30, function in a5, ends with RTE). The NDK's inline wrapper\n"
     "| for Supervisor() is not prototype-clean, hence the direct call.\n"

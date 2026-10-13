@@ -46,24 +46,6 @@ static_assert(START_X >= 0 && START_X + BOX <= WIDTH, "box starts on screen");
 static_assert(START_Y >= 0 && START_Y + BOX <= HEIGHT, "box starts on screen");
 static_assert(HEIGHT < 1024 && ROW_WORDS < 64, "plane fits one BLTSIZE blit");
 
-/* Custom register offsets for the copper list. */
-static constexpr uint16_t REG_BPLCON0 = 0x100;
-static constexpr uint16_t REG_BPLCON1 = 0x102;
-static constexpr uint16_t REG_BPLCON2 = 0x104;
-static constexpr uint16_t REG_BPLCON3 = 0x106;
-static constexpr uint16_t REG_BPL1MOD = 0x108;
-static constexpr uint16_t REG_BPL2MOD = 0x10a;
-static constexpr uint16_t REG_BPLCON4 = 0x10c;
-static constexpr uint16_t REG_DIWSTRT = 0x08e;
-static constexpr uint16_t REG_DIWSTOP = 0x090;
-static constexpr uint16_t REG_DDFSTRT = 0x092;
-static constexpr uint16_t REG_DDFSTOP = 0x094;
-static constexpr uint16_t REG_BPL1PTH = 0x0e0;
-static constexpr uint16_t REG_BPL1PTL = 0x0e2;
-static constexpr uint16_t REG_COLOR00 = 0x180;
-static constexpr uint16_t REG_COLOR01 = 0x182;
-static constexpr uint16_t REG_FMODE = 0x1fc;
-
 static constexpr uint16_t COLOR_YELLOW = 0x0ff0;
 static constexpr uint16_t COLOR_RED = 0x0f00;
 
@@ -163,24 +145,22 @@ static uint16_t* build_copper(uint16_t* cop, const uint8_t* plane) {
   uint16_t* p = cop;
   uint16_t* bpl1pt;
 
-  p = cop_move(p, REG_FMODE, 0x0000);   /* AGA: OCS-compatible fetch */
-  p = cop_move(p, REG_BPLCON0, 0x1200); /* 1 bitplane, colour burst  */
-  p = cop_move(p, REG_BPLCON1, 0x0000);
-  p = cop_move(p, REG_BPLCON2, 0x0000);
-  p = cop_move(p, REG_BPLCON3, 0x0000); /* AGA: bank 0, 12-bit writes */
-  p = cop_move(p, REG_BPLCON4, 0x0011);
-  p = cop_move(p, REG_BPL1MOD, 0x0000);
-  p = cop_move(p, REG_BPL2MOD, 0x0000);
-  p = cop_move(p, REG_DIWSTRT, 0x2c81); /* standard PAL 320x256      */
-  p = cop_move(p, REG_DIWSTOP, 0x2cc1);
-  p = cop_move(p, REG_DDFSTRT, 0x0038);
-  p = cop_move(p, REG_DDFSTOP, 0x00d0);
-  bpl1pt = p;
-  p = cop_move(p, REG_BPL1PTH, 0x0000);
-  p = cop_move(p, REG_BPL1PTL, 0x0000);
-  cop_set_ptr(bpl1pt, plane);
-  p = cop_move(p, REG_COLOR00, COLOR_YELLOW);
-  p = cop_move(p, REG_COLOR01, COLOR_RED);
+  p = cop_move(p, REG(fmode), 0x0000);   /* AGA: OCS-compatible fetch */
+  p = cop_move(p, REG(bplcon0), 0x1200); /* 1 bitplane, colour burst  */
+  p = cop_move(p, REG(bplcon1), 0x0000);
+  p = cop_move(p, REG(bplcon2), 0x0000);
+  p = cop_move(p, REG(bplcon3), 0x0000); /* AGA: bank 0, 12-bit writes */
+  p = cop_move(p, REG(bplcon4), 0x0011);
+  p = cop_move(p, REG(bpl1mod), 0x0000);
+  p = cop_move(p, REG(bpl2mod), 0x0000);
+  p = cop_move(p, REG(diwstrt), 0x2c81); /* standard PAL 320x256      */
+  p = cop_move(p, REG(diwstop), 0x2cc1);
+  p = cop_move(p, REG(ddfstrt), 0x0038);
+  p = cop_move(p, REG(ddfstop), 0x00d0);
+  bpl1pt = cop_move_ptr(p, REG(bplpt[0]), plane);
+  p = bpl1pt + 4;
+  p = cop_move(p, REG(color[0]), COLOR_YELLOW);
+  p = cop_move(p, REG(color[1]), COLOR_RED);
   (void)cop_end(p);
 
   return bpl1pt;
