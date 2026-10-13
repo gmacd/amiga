@@ -53,12 +53,15 @@ static constexpr uint16_t COLOR_RED = 0x0f00;
  * a capacity with headroom, not a count to keep in step. */
 static constexpr size_t COPPER_WORDS = 64;
 
-/* Blitter minterms for blit_box(), from hardware/blit.h's truth-table
- * terms (ABC = A and B and C, NABC = not-A and B and C, ...). B is unused,
- * so each term appears with B both set and clear. */
-static constexpr uint16_t LF_SET = A_OR_C;          // D = A | C
-static constexpr uint16_t LF_CLEAR = NABC | NANBC;  // D = ~A & C
-static_assert(LF_SET == 0xfa && LF_CLEAR == 0x0a, "minterms");
+/* What blit_box() does to the box, as its blitter minterm, so the
+ * operation drops straight into BLTCON0. Built from hardware/blit.h's
+ * truth-table terms (ABC = A and B and C, NABC = not-A and B and C, ...).
+ * B is unused, so each term appears with B both set and clear. */
+enum box_op : uint16_t {
+  BOX_SET = A_OR_C,          // D = A | C
+  BOX_CLEAR = NABC | NANBC,  // D = ~A & C
+};
+static_assert(BOX_SET == 0xfa && BOX_CLEAR == 0x0a, "minterms");
 
 // --- VBlank interrupt ---
 
@@ -102,14 +105,13 @@ static void blit_clear(uint8_t* plane) {
   CUSTOM->bltsize = (HEIGHT << 6) | ROW_WORDS;
 }
 
-/* Set (fill != 0) or clear the BOXxBOX box at (x, y).
+/* Set or clear the BOXxBOX box at (x, y).
  *
  * A is fed from BLTADAT (all ones) with the first/last word masks shaping
  * the box's horizontal extent, C reads the existing plane, D writes it:
- *   fill:  D = A | C
- *   clear: D = ~A & C
+ * D = op(A, C), with A set where the box is.
  * The box spans one word when 16-pixel aligned, two otherwise. */
-static void blit_box(uint8_t* plane, int32_t x, int32_t y, bool fill) {
+static void blit_box(uint8_t* plane, int32_t x, int32_t y, enum box_op op) {
   int32_t shift = x & 15;
   uint16_t nwords = shift ? 2 : 1;
   uint16_t fwm = (uint16_t)(0xffff >> shift);
@@ -118,7 +120,7 @@ static void blit_box(uint8_t* plane, int32_t x, int32_t y, bool fill) {
   uint8_t* addr = plane + y * ROW_BYTES + ((x >> 4) << 1);
 
   blit_wait();
-  CUSTOM->bltcon0 = BC0F_SRCC | BC0F_DEST | (fill ? LF_SET : LF_CLEAR);
+  CUSTOM->bltcon0 = BC0F_SRCC | BC0F_DEST | op;
   CUSTOM->bltcon1 = 0;
   CUSTOM->bltafwm = fwm;
   CUSTOM->bltalwm = lwm;
@@ -192,7 +194,7 @@ static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
 
   for (int32_t i = 0; i < BUFFERS; i++) {
     blit_clear(planes[i]);
-    blit_box(planes[i], pos.x, pos.y, true);
+    blit_box(planes[i], pos.x, pos.y, BOX_SET);
     drawn[i] = pos;
   }
   blit_wait();
@@ -227,8 +229,8 @@ static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
     /* The copper already fetched this frame's pointer at VBlank, so the
      * back buffer is invisible until the flip below takes effect next
      * frame. Erase the box this buffer last showed, draw the new one. */
-    blit_box(planes[back], drawn[back].x, drawn[back].y, false);
-    blit_box(planes[back], pos.x, pos.y, true);
+    blit_box(planes[back], drawn[back].x, drawn[back].y, BOX_CLEAR);
+    blit_box(planes[back], pos.x, pos.y, BOX_SET);
     drawn[back] = pos;
     cop_set_ptr(bpl1pt, planes[back]);
     back ^= 1;
