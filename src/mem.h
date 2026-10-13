@@ -1,6 +1,6 @@
-/* mem.h -- the two memory helpers a freestanding program needs, so that
- * nothing ever pulls libc in by accident. Byte loops: chip-memory bulk work
- * belongs to the blitter (see demo1.c). */
+// mem.h -- the two memory helpers a freestanding program needs, so that
+// nothing ever pulls libc in by accident. Byte loops: chip-memory bulk work
+// belongs to the blitter (see demo1.c).
 #ifndef MEM_H
 #define MEM_H
 

@@ -1,10 +1,10 @@
-/* copper.h -- a tiny, bounds-checked copper-list emitter.
- *
- * Build the list in code instead of a static table: a per-line colour change
- * is one cop_wait() and one cop_move(). The builder knows the end of its
- * buffer, so emitting past it never writes out of bounds: it sets
- * `overflow` and drops the instruction. Check cop_done() once at the end
- * rather than counting words by hand. */
+// copper.h -- a tiny, bounds-checked copper-list emitter.
+//
+// Build the list in code instead of a static table: a per-line colour change
+// is one cop_wait() and one cop_move(). The builder knows the end of its
+// buffer, so emitting past it never writes out of bounds: it sets
+// `overflow` and drops the instruction. Check cop_done() once at the end
+// rather than counting words by hand.
 #ifndef COPPER_H
 #define COPPER_H
 
@@ -42,8 +42,8 @@ static inline void cop_move(struct copper* c, uint16_t reg, uint16_t value) {
   }
 }
 
-/* WAIT for beam position (x, y); x in low-res pixel pairs, y 0-255.
- * Lines past 255 need a wait at (0, 255) first, the usual copper trick. */
+// WAIT for beam position (x, y); x in low-res pixel pairs, y 0-255.
+// Lines past 255 need a wait at (0, 255) first, the usual copper trick.
 static inline void cop_wait(struct copper* c, uint16_t x, uint16_t y) {
   uint16_t* p = cop_reserve(c, 2);
   if (p) {
@@ -52,16 +52,16 @@ static inline void cop_wait(struct copper* c, uint16_t x, uint16_t y) {
   }
 }
 
-/* Patch a 32-bit address into the two value words of a pointer pair
- * emitted by cop_move_ptr(): two MOVEs, four words. */
+// Patch a 32-bit address into the two value words of a pointer pair
+// emitted by cop_move_ptr(): two MOVEs, four words.
 static inline void cop_set_ptr(uint16_t pair[static 4], const void* address) {
   pair[1] = (uint16_t)((uintptr_t)address >> 16);
   pair[3] = (uint16_t)((uintptr_t)address & 0xffff);
 }
 
-/* MOVE a 32-bit address into a pointer register pair: `reg` is the high
- * word's offset, e.g. REG(bplpt[0]). Returns the pair, for cop_set_ptr()
- * to repoint later, or nullptr if it did not fit. */
+// MOVE a 32-bit address into a pointer register pair: `reg` is the high
+// word's offset, e.g. REG(bplpt[0]). Returns the pair, for cop_set_ptr()
+// to repoint later, or nullptr if it did not fit.
 static inline uint16_t* cop_move_ptr(struct copper* c, uint16_t reg,
                                      const void* address) {
   uint16_t* p = cop_reserve(c, 4);
@@ -73,8 +73,8 @@ static inline uint16_t* cop_move_ptr(struct copper* c, uint16_t reg,
   return p;
 }
 
-/* Terminate the list with a WAIT that never matches. Returns false if the
- * list, terminator included, did not fit its buffer. */
+// Terminate the list with a WAIT that never matches. Returns false if the
+// list, terminator included, did not fit its buffer.
 [[nodiscard]] static inline bool cop_done(struct copper* c) {
   uint16_t* p = cop_reserve(c, 2);
   if (p) {

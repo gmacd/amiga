@@ -2,7 +2,9 @@
 # Source rules the formatter cannot enforce. Fails on:
 #   - a bare C integer type (int, short, long, signed, unsigned) instead of
 #     a <stdint.h> fixed-width type;
-#   - GNU __attribute__((...)) instead of C23 [[gnu::...]] syntax.
+#   - GNU __attribute__((...)) instead of C23 [[gnu::...]] syntax;
+#   - a /* ... */ comment instead of // (checked on the raw source, since
+#     the type and attribute checks run on comment-stripped text).
 # Comments are stripped by the preprocessor (without expanding macros or
 # includes) and string literals are ignored, so prose and asm text never
 # trigger it. Line numbers are mapped back to the original file through the
@@ -27,5 +29,15 @@ for f in "$@"; do
         }
       }
       END { exit bad }' || status=1
+  awk -v file="$f" '
+    {
+      code = $0
+      gsub(/"([^"\\]|\\.)*"/, "\"\"", code)
+      if (code ~ /\/\*/) {
+        printf "%s:%d: use // comments, not /* */: %s\n", file, NR, $0
+        bad = 1
+      }
+    }
+    END { exit bad }' "$f" || status=1
 done
 exit $status

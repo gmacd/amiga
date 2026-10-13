@@ -1,20 +1,18 @@
-/*
- * demo1.c -- Copperline / A1200 bare-metal demo skeleton.
- *
- * Yellow background, a red 16x16 box bouncing off the screen edges, drawn
- * by the blitter into a double-buffered single bitplane, paced by a VBlank
- * interrupt. Runs until the left mouse button is pressed, or for N frames
- * when N is the command-line argument (headless runs), then hands the
- * machine back and returns 0 to the CLI (20 if setup fails).
- *
- * This file touches hardware only. The OS is used through the boundary in
- * system.h: before sys_takeover() and after sys_restore() only.
- *
- * Build (bebbo m68k-amigaos-gcc, see Makefile):
- *   make
- * Run:
- *   copperline --model A1200 --run demo1/build/demo1
- */
+// demo1.c -- Copperline / A1200 bare-metal demo skeleton.
+//
+// Yellow background, a red 16x16 box bouncing off the screen edges, drawn
+// by the blitter into a double-buffered single bitplane, paced by a VBlank
+// interrupt. Runs until the left mouse button is pressed, or for N frames
+// when N is the command-line argument (headless runs), then hands the
+// machine back and returns 0 to the CLI (20 if setup fails).
+//
+// This file touches hardware only. The OS is used through the boundary in
+// system.h: before sys_takeover() and after sys_restore() only.
+//
+// Build (bebbo m68k-amigaos-gcc, see Makefile):
+//   make
+// Run:
+//   copperline --model A1200 --run demo1/build/demo1
 
 #include <stddef.h>
 #include <stdint.h>
@@ -50,14 +48,14 @@ static_assert(BUFFERS >= 2, "drawing needs a buffer that is not on screen");
 static constexpr uint16_t COLOR_YELLOW = 0x0ff0;
 static constexpr uint16_t COLOR_RED = 0x0f00;
 
-/* Copper list buffer, in words. build_copper() checks it fits, so this is
- * a capacity with headroom, not a count to keep in step. */
+// Copper list buffer, in words. build_copper() checks it fits, so this is
+// a capacity with headroom, not a count to keep in step.
 static constexpr size_t COPPER_WORDS = 64;
 
-/* What blit_box() does to the box, as its blitter minterm, so the
- * operation drops straight into BLTCON0. Built from hardware/blit.h's
- * truth-table terms (ABC = A and B and C, NABC = not-A and B and C, ...).
- * B is unused, so each term appears with B both set and clear. */
+// What blit_box() does to the box, as its blitter minterm, so the
+// operation drops straight into BLTCON0. Built from hardware/blit.h's
+// truth-table terms (ABC = A and B and C, NABC = not-A and B and C, ...).
+// B is unused, so each term appears with B both set and clear.
 enum box_op : uint16_t {
   BOX_SET = A_OR_C,          // D = A | C
   BOX_CLEAR = NABC | NANBC,  // D = ~A & C
@@ -69,9 +67,9 @@ static_assert(BOX_SET == 0xfa && BOX_CLEAR == 0x0a, "minterms");
 // Bumped once per frame by the level 3 handler; the main loop waits on it.
 static volatile uint32_t frame_counter;
 
-/* Level 3 autovector handler. Only VERTB is enabled at this level, but the
- * request bit is checked anyway. Acknowledged twice: a single INTREQ write
- * can be missed on fast 68040/060 machines (the A4000 quirk). */
+// Level 3 autovector handler. Only VERTB is enabled at this level, but the
+// request bit is checked anyway. Acknowledged twice: a single INTREQ write
+// can be missed on fast 68040/060 machines (the A4000 quirk).
 INTERRUPT_HANDLER static void vblank_handler(void) {
   if (CUSTOM->intreqr & INTF_VERTB) {
     CUSTOM->intreq = INTF_VERTB;
@@ -106,12 +104,12 @@ static void blit_clear(uint8_t plane[static PLANE_SIZE]) {
   CUSTOM->bltsize = (HEIGHT << 6) | ROW_WORDS;
 }
 
-/* Set or clear the BOXxBOX box at (x, y).
- *
- * A is fed from BLTADAT (all ones) with the first/last word masks shaping
- * the box's horizontal extent, C reads the existing plane, D writes it:
- * D = op(A, C), with A set where the box is.
- * The box spans one word when 16-pixel aligned, two otherwise. */
+// Set or clear the BOXxBOX box at (x, y).
+//
+// A is fed from BLTADAT (all ones) with the first/last word masks shaping
+// the box's horizontal extent, C reads the existing plane, D writes it:
+// D = op(A, C), with A set where the box is.
+// The box spans one word when 16-pixel aligned, two otherwise.
 static void blit_box(uint8_t plane[static PLANE_SIZE], int32_t x, int32_t y,
                      enum box_op op) {
   int32_t shift = x & 15;
@@ -136,8 +134,8 @@ static void blit_box(uint8_t plane[static PLANE_SIZE], int32_t x, int32_t y,
 
 // --- Copper list ---
 
-/* Returns the MOVE pair holding the bitplane pointer, for flipping, or
- * nullptr if the list does not fit the buffer. */
+// Returns the MOVE pair holding the bitplane pointer, for flipping, or
+// nullptr if the list does not fit the buffer.
 static uint16_t* build_copper(uint16_t* buffer, size_t words,
                               const uint8_t* plane) {
   struct copper c = cop_begin(buffer, words);
@@ -228,9 +226,9 @@ static void bounce_loop(uint8_t* const planes[static BUFFERS],
       dy = -SPEED_Y;
     }
 
-    /* The copper already fetched this frame's pointer at VBlank, so the
-     * back buffer is invisible until the flip below takes effect next
-     * frame. Erase the box this buffer last showed, draw the new one. */
+    // The copper already fetched this frame's pointer at VBlank, so the
+    // back buffer is invisible until the flip below takes effect next
+    // frame. Erase the box this buffer last showed, draw the new one.
     blit_box(planes[back], drawn[back].x, drawn[back].y, BOX_CLEAR);
     blit_box(planes[back], pos.x, pos.y, BOX_SET);
     drawn[back] = pos;
@@ -240,9 +238,9 @@ static void bounce_loop(uint8_t* const planes[static BUFFERS],
   blit_wait();
 }
 
-/* Everything between allocation and freeing: build the display, take the
- * machine, run, give it back. Early returns are safe here because
- * demo_main() owns the memory. */
+// Everything between allocation and freeing: build the display, take the
+// machine, run, give it back. Early returns are safe here because
+// demo_main() owns the memory.
 static int32_t demo_run(struct sys* sys, uint8_t* const planes[static BUFFERS],
                         uint16_t* copper, uint32_t frames) {
   for (int32_t i = 0; i < BUFFERS; i++) {

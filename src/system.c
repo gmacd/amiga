@@ -1,19 +1,15 @@
-/*
- * system.c -- loader entry and the OS boundary for demo1.
- *
- * This is the only file that calls the operating system. See system.h for
- * the call order the demo follows. The `_start` stub must be the first code
- * in the text hunk: it is emitted into its own .text.start section, which
- * link.ld places first.
- */
+// system.c -- loader entry and the OS boundary for demo1.
+//
+// This is the only file that calls the operating system. See system.h for
+// the call order the demo follows. The `_start` stub must be the first code
+// in the text hunk: it is emitted into its own .text.start section, which
+// link.ld places first.
 
-/*
- * CLI entry stub. AmigaDOS enters at the top of the first hunk with a0 =
- * argument bytes and d0 = their length. Preserve the shell's callee-saved
- * registers and call entry(args, length); its d0 result is the CLI return
- * code. A Workbench start enters the same way with meaningless a0/d0, which
- * entry() detects and ignores.
- */
+// CLI entry stub. AmigaDOS enters at the top of the first hunk with a0 =
+// argument bytes and d0 = their length. Preserve the shell's callee-saved
+// registers and call entry(args, length); its d0 result is the CLI return
+// code. A Workbench start enters the same way with meaningless a0/d0, which
+// entry() detects and ignores.
 // clang-format off
 __asm__(
     "    .section .text.start\n"
@@ -68,11 +64,9 @@ struct GfxBase* GfxBase;
 
 extern uintptr_t read_vbr(struct ExecBase* sysbase);
 
-/*
- * Loader-side wrapper around demo_main(). Started from Workbench (no CLI
- * structure) the process must collect its startup message and reply to it
- * on exit, after Forbid(), so Workbench does not unload the code too early.
- */
+// Loader-side wrapper around demo_main(). Started from Workbench (no CLI
+// structure) the process must collect its startup message and reply to it
+// on exit, after Forbid(), so Workbench does not unload the code too early.
 int32_t entry(const char* args, uint32_t length) {
   SysBase = *(struct ExecBase**)4;
 
