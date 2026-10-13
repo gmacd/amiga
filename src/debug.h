@@ -28,10 +28,8 @@
 
 static inline void dbg_printf(const char* fmt, ...) {
   va_list ap;
-  const char* s;
-
   va_start(ap, fmt);
-  for (s = fmt; *s; s++) {
+  for (const char* s = fmt; *s; s++) {
     if (*s != '%') {
       continue;
     }

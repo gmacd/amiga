@@ -75,12 +75,10 @@ extern uintptr_t read_vbr(struct ExecBase* sysbase);
  * on exit, after Forbid(), so Workbench does not unload the code too early.
  */
 int32_t entry(const char* args, uint32_t length) {
-  struct Process* self;
-  struct Message* wb_msg = nullptr;
-  int32_t rc;
-
   SysBase = *(struct ExecBase**)4;
-  self = (struct Process*)FindTask(nullptr);
+
+  struct Process* self = (struct Process*)FindTask(nullptr);
+  struct Message* wb_msg = nullptr;
   if (self->pr_CLI == 0) {
     WaitPort(&self->pr_MsgPort);
     wb_msg = GetMsg(&self->pr_MsgPort);
@@ -88,7 +86,7 @@ int32_t entry(const char* args, uint32_t length) {
     length = 0;
   }
 
-  rc = demo_main(args, length);
+  int32_t rc = demo_main(args, length);
 
   if (wb_msg) {
     Forbid();

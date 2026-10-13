@@ -197,19 +197,18 @@ static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
                         uint32_t frames) {
   struct box pos = {START_X, START_Y};
   struct box drawn[BUFFERS];  // where each buffer has the box
-  int32_t dx = SPEED_X, dy = SPEED_Y;
-  int32_t back = 0;  // buffer being drawn, not shown
-  uint32_t frame;
-  int32_t i;
 
-  for (i = 0; i < BUFFERS; i++) {
+  for (int32_t i = 0; i < BUFFERS; i++) {
     blit_clear(planes[i]);
     blit_box(planes[i], pos.x, pos.y, true);
     drawn[i] = pos;
   }
   blit_wait();
 
-  for (frame = 0; frames == 0 || frame < frames; frame++) {
+  int32_t dx = SPEED_X;
+  int32_t dy = SPEED_Y;
+  int32_t back = 0;  // buffer being drawn, not shown
+  for (uint32_t frame = 0; frames == 0 || frame < frames; frame++) {
     frame_wait();
     if (left_mouse_pressed()) {
       DBG("demo1: mouse button at frame %lu\n", frame);
@@ -245,44 +244,28 @@ static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
   blit_wait();
 }
 
-int32_t demo_main(const char* args, uint32_t length) {
-  struct sys sys;
-  uint8_t* planes[BUFFERS] = {nullptr, nullptr};
-  uint16_t* copper = nullptr;
-  uint16_t* bpl1pt;
-  uint32_t frames = parse_frames(args, length);
-  uintptr_t old_vector;
-  int32_t rc;
-  int32_t i;
-
-  // --- OS phase: libraries, memory, loading ---
-  rc = sys_init(&sys);
-  if (rc) {
-    return rc;
-  }
-  for (i = 0; i < BUFFERS; i++) {
-    planes[i] = sys_alloc_chip(PLANE_SIZE);
-  }
-  copper = sys_alloc_chip(COPPER_WORDS * sizeof(uint16_t));
+/* Everything between allocation and freeing: build the display, take the
+ * machine, run, give it back. Early returns are safe here because
+ * demo_main() owns the memory. */
+static int32_t demo_run(struct sys* sys, uint8_t* planes[BUFFERS],
+                        uint16_t* copper, uint32_t frames) {
   if (!planes[0] || !planes[1] || !copper) {
-    rc = SYS_RETURN_FAIL;
-    goto out;
+    return SYS_RETURN_FAIL;
   }
-  bpl1pt = build_copper(copper, COPPER_WORDS, planes[0]);
+  uint16_t* bpl1pt = build_copper(copper, COPPER_WORDS, planes[0]);
   if (!bpl1pt) {
     DBG("demo1: copper list overflows its %lu-word buffer\n",
         (uint32_t)COPPER_WORDS);
-    rc = SYS_RETURN_FAIL;
-    goto out;
+    return SYS_RETURN_FAIL;
   }
   DBG("demo1: frames=%lu vbr=%p planes=%p,%p copper=%p\n", frames,
-      (void*)sys.vbr, planes[0], planes[1], copper);
+      (void*)sys->vbr, planes[0], planes[1], copper);
 
-  // --- hardware phase: no OS calls between these two lines ---
-  sys_takeover(&sys);
+  // --- hardware phase: no OS calls between takeover and restore ---
+  sys_takeover(sys);
 
-  old_vector = *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3);
-  *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3) = (uintptr_t)vblank_handler;
+  uintptr_t old_vector = *(volatile uintptr_t*)(sys->vbr + VECTOR_LEVEL3);
+  *(volatile uintptr_t*)(sys->vbr + VECTOR_LEVEL3) = (uintptr_t)vblank_handler;
   CUSTOM->cop1lc = (uintptr_t)copper;
   CUSTOM->copjmp1 = 0;
   CUSTOM->dmacon =
@@ -293,16 +276,33 @@ int32_t demo_main(const char* args, uint32_t length) {
 
   CUSTOM->intena = INTF_INTEN | INTF_VERTB;
   CUSTOM->intreq = INTF_VERTB;
-  *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3) = old_vector;
+  *(volatile uintptr_t*)(sys->vbr + VECTOR_LEVEL3) = old_vector;
 
-  sys_restore(&sys);
+  sys_restore(sys);
   // --- OS phase again ---
 
   DBG("demo1: done after %lu frames\n", frame_counter);
-  rc = SYS_RETURN_OK;
-out:
+  return SYS_RETURN_OK;
+}
+
+// OS phase: libraries and memory in, demo_run(), memory and libraries out.
+int32_t demo_main(const char* args, uint32_t length) {
+  struct sys sys;
+  int32_t rc = sys_init(&sys);
+  if (rc != SYS_RETURN_OK) {
+    return rc;
+  }
+
+  uint8_t* planes[BUFFERS] = {nullptr, nullptr};
+  for (int32_t i = 0; i < BUFFERS; i++) {
+    planes[i] = sys_alloc_chip(PLANE_SIZE);
+  }
+  uint16_t* copper = sys_alloc_chip(COPPER_WORDS * sizeof(uint16_t));
+
+  rc = demo_run(&sys, planes, copper, parse_frames(args, length));
+
   sys_free_chip(copper, COPPER_WORDS * sizeof(uint16_t));
-  for (i = 0; i < BUFFERS; i++) {
+  for (int32_t i = 0; i < BUFFERS; i++) {
     sys_free_chip(planes[i], PLANE_SIZE);
   }
   sys_exit(&sys);
