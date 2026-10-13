@@ -256,8 +256,8 @@ static int32_t demo_run(struct sys* sys, uint8_t* planes[BUFFERS],
   // --- hardware phase: no OS calls between takeover and restore ---
   sys_takeover(sys);
 
-  uintptr_t old_vector = *(volatile uintptr_t*)(sys->vbr + VECTOR_LEVEL3);
-  *(volatile uintptr_t*)(sys->vbr + VECTOR_LEVEL3) = (uintptr_t)vblank_handler;
+  exception_handler old_handler = *vector_slot(sys->vbr, VECTOR_LEVEL3);
+  *vector_slot(sys->vbr, VECTOR_LEVEL3) = vblank_handler;
   CUSTOM->cop1lc = (uintptr_t)copper;
   CUSTOM->copjmp1 = 0;
   CUSTOM->dmacon =
@@ -268,7 +268,7 @@ static int32_t demo_run(struct sys* sys, uint8_t* planes[BUFFERS],
 
   CUSTOM->intena = INTF_INTEN | INTF_VERTB;
   CUSTOM->intreq = INTF_VERTB;
-  *(volatile uintptr_t*)(sys->vbr + VECTOR_LEVEL3) = old_vector;
+  *vector_slot(sys->vbr, VECTOR_LEVEL3) = old_handler;
 
   sys_restore(sys);
   // --- OS phase again ---

@@ -43,7 +43,19 @@ static_assert(DMAF_WRITABLE == 0x07ff, "DMACON writable bits");
 #define INTERRUPT_HANDLER
 #endif
 
+// An exception handler, entered by the CPU through the vector table.
+typedef void (*exception_handler)(void);
+
 // Autovector level 3 (VERTB/COPER/BLIT) exception vector offset.
 static constexpr uintptr_t VECTOR_LEVEL3 = 0x6c;
+
+/* The vector table slot at byte `offset` from the vector base `vbr`.
+ * Base plus offset rather than indexing a table pointer: on a 68000 the
+ * base is 0, and indexing a null pointer is undefined behaviour that GCC
+ * may optimise on. A slot address is never null. */
+static inline exception_handler volatile* vector_slot(uintptr_t vbr,
+                                                      uintptr_t offset) {
+  return (exception_handler volatile*)(vbr + offset);
+}
 
 #endif
