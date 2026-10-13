@@ -14,7 +14,7 @@
  * code. A Workbench start enters the same way with meaningless a0/d0, which
  * entry() detects and ignores.
  */
-/* clang-format off */
+// clang-format off
 __asm__(
     "    .text\n"
     "    .globl _start\n"
@@ -43,7 +43,7 @@ __asm__(
     "read_vbr_super:\n"
     "    movec   vbr,d0\n"
     "    rte\n");
-/* clang-format on */
+// clang-format on
 
 #include "system.h"
 
@@ -59,6 +59,9 @@ __asm__(
 
 #include "hardware.h"
 #include "mem.h"
+
+static_assert(SYS_RETURN_OK == RETURN_OK && SYS_RETURN_FAIL == RETURN_FAIL,
+              "return codes match dos/dos.h");
 
 struct ExecBase* SysBase;
 struct GfxBase* GfxBase;
@@ -98,15 +101,15 @@ int32_t sys_init(struct sys* s) {
 
   GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
   if (!GfxBase) {
-    return 20;
+    return SYS_RETURN_FAIL;
   }
   s->gfx = GfxBase;
 
-  /* 68010 and later have a relocatable vector table. */
+  // 68010 and later have a relocatable vector table.
   if (SysBase->AttnFlags & AFF_68010) {
     s->vbr = read_vbr(SysBase);
   }
-  return 0;
+  return SYS_RETURN_OK;
 }
 
 void* sys_alloc_chip(size_t bytes) {
@@ -127,9 +130,9 @@ void sys_takeover(struct sys* s) {
 
   s->old_dmacon = CUSTOM->dmaconr;
   s->old_intena = CUSTOM->intenar;
-  CUSTOM->intena = INTF_ALL_SOURCES; /* every interrupt source off */
-  CUSTOM->intreq = INTF_ALL_SOURCES; /* and nothing left pending   */
-  CUSTOM->dmacon = DMAF_ALL_BITS;    /* every DMA channel off      */
+  CUSTOM->intena = INTF_ALL_SOURCES;  // every interrupt source off
+  CUSTOM->intreq = INTF_ALL_SOURCES;  // and nothing left pending
+  CUSTOM->dmacon = DMAF_ALL_BITS;     // every DMA channel off
 }
 
 void sys_restore(struct sys* s) {

@@ -24,18 +24,25 @@
 struct GfxBase;
 struct View;
 
+/* CLI return codes (AmigaDOS RETURN_OK and RETURN_FAIL, checked against
+ * dos/dos.h in system.c so the demo side needs no NDK header). */
+/* An enum rather than constexpr objects: system.c builds with
+ * -fno-toplevel-reorder, which would emit unused objects as data. */
+enum : int32_t { SYS_RETURN_OK = 0, SYS_RETURN_FAIL = 20 };
+
 struct sys {
   struct GfxBase* gfx;
-  uintptr_t vbr; /* vector base: 0 on 68000, else from MOVEC */
+  uintptr_t vbr;  // vector base: 0 on 68000, else from MOVEC
   struct View* old_view;
   uint16_t old_dmacon;
   uint16_t old_intena;
 };
 
-/* Open libraries and read the VBR. Returns 0, or a CLI return code. */
+/* Open libraries and read the VBR. Returns SYS_RETURN_OK, or a CLI
+ * return code to exit with. */
 [[nodiscard]] int32_t sys_init(struct sys* s);
 
-/* Cleared chip memory, or nullptr. */
+// Cleared chip memory, or nullptr.
 [[nodiscard]] void* sys_alloc_chip(size_t bytes);
 void sys_free_chip(void* p, size_t bytes);
 
@@ -50,7 +57,7 @@ void sys_restore(struct sys* s);
 
 void sys_exit(struct sys* s);
 
-/* Loader side: called by the _start stub with the CLI argument string. */
+// Loader side: called by the _start stub with the CLI argument string.
 int32_t entry(const char* args, uint32_t length);
 
 /* The demo's entry point, called by entry() with the CLI argument string

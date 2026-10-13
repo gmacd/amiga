@@ -24,8 +24,7 @@
 #include "hardware.h"
 #include "system.h"
 
-/* ------------------------------------------------------------------ */
-/* Screen geometry: PAL lo-res, one bitplane, two buffers.             */
+// --- Screen geometry: PAL lo-res, one bitplane, two buffers ---
 
 static constexpr int WIDTH = 320;
 static constexpr int HEIGHT = 256;
@@ -34,7 +33,7 @@ static constexpr int ROW_WORDS = WIDTH / 16;
 static constexpr int PLANE_SIZE = ROW_BYTES * HEIGHT;
 static constexpr int BUFFERS = 2;
 
-/* The bouncing box. */
+// The bouncing box.
 static constexpr int BOX = 16;
 static constexpr int START_X = 40;
 static constexpr int START_Y = 30;
@@ -57,56 +56,54 @@ static constexpr size_t COPPER_WORDS = 64;
 /* Blitter minterms for blit_box(), from hardware/blit.h's truth-table
  * terms (ABC = A and B and C, NABC = not-A and B and C, ...). B is unused,
  * so each term appears with B both set and clear. */
-static constexpr uint16_t LF_SET = A_OR_C;         /* D = A | C  */
-static constexpr uint16_t LF_CLEAR = NABC | NANBC; /* D = ~A & C */
+static constexpr uint16_t LF_SET = A_OR_C;          // D = A | C
+static constexpr uint16_t LF_CLEAR = NABC | NANBC;  // D = ~A & C
 static_assert(LF_SET == 0xfa && LF_CLEAR == 0x0a, "minterms");
 
-/* ------------------------------------------------------------------ */
-/* VBlank interrupt.                                                   */
+// --- VBlank interrupt ---
 
-/* Bumped once per frame by the level 3 handler; the main loop waits on it. */
+// Bumped once per frame by the level 3 handler; the main loop waits on it.
 volatile uint32_t frame_counter;
 
 /* Level 3 autovector handler. Only VERTB is enabled at this level, but the
  * request bit is checked anyway. Acknowledged twice: a single INTREQ write
  * can be missed on fast 68040/060 machines (the A4000 quirk). Touches no
  * registers, so nothing needs saving. */
-/* clang-format off */
+// clang-format off
 __asm__(
     "    .text\n"
     "    .globl _vblank_handler\n"
     "_vblank_handler:\n"
-    "    btst    #5,0xdff01f\n"              /* INTREQR bit 5: VERTB  */
+    "    btst    #5,0xdff01f\n"  // INTREQR bit 5: VERTB
     "    beq.s   1f\n"
-    "    move.w  #0x0020,0xdff09c\n"         /* INTREQ: clear VERTB   */
+    "    move.w  #0x0020,0xdff09c\n"  // INTREQ: clear VERTB
     "    move.w  #0x0020,0xdff09c\n"
     "    addq.l  #1,_frame_counter\n"
     "1:  rte\n");
-/* clang-format on */
+// clang-format on
 
 extern void vblank_handler(void);
 
-static void wait_frame(void) {
+static void frame_wait(void) {
   uint32_t seen = frame_counter;
   while (frame_counter == seen) {
-    /* spin: the VBlank handler bumps the counter */
+    // spin: the VBlank handler bumps the counter
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Blitter.                                                            */
+// --- Blitter ---
 
 static void blit_wait(void) {
-  (void)CUSTOM->dmaconr; /* A1000 Agnus read quirk */
+  (void)CUSTOM->dmaconr;  // A1000 Agnus read quirk
   while (CUSTOM->dmaconr & DMAF_BLTDONE) {
-    /* spin: BBUSY clears when the blit is done */
+    // spin: BBUSY clears when the blit is done
   }
 }
 
-/* Zero a whole bitplane: D channel only, minterm 0. */
+// Zero a whole bitplane: D channel only, minterm 0.
 static void blit_clear(uint8_t* plane) {
   blit_wait();
-  CUSTOM->bltcon0 = BC0F_DEST; /* D only, minterm 0: write zeros */
+  CUSTOM->bltcon0 = BC0F_DEST;  // D only, minterm 0: write zeros
   CUSTOM->bltcon1 = 0;
   CUSTOM->bltdpt = plane;
   CUSTOM->bltdmod = 0;
@@ -141,8 +138,7 @@ static void blit_box(uint8_t* plane, int x, int y, bool fill) {
   CUSTOM->bltsize = (uint16_t)((BOX << 6) | nwords);
 }
 
-/* ------------------------------------------------------------------ */
-/* Copper list.                                                        */
+// --- Copper list ---
 
 /* Returns the MOVE pair holding the bitplane pointer, for flipping, or
  * nullptr if the list does not fit the buffer. */
@@ -150,15 +146,15 @@ static uint16_t* build_copper(uint16_t* buffer, size_t words,
                               const uint8_t* plane) {
   struct copper c = cop_begin(buffer, words);
 
-  cop_move(&c, REG(fmode), 0x0000);   /* AGA: OCS-compatible fetch */
-  cop_move(&c, REG(bplcon0), 0x1200); /* 1 bitplane, colour burst  */
+  cop_move(&c, REG(fmode), 0x0000);    // AGA: OCS-compatible fetch
+  cop_move(&c, REG(bplcon0), 0x1200);  // 1 bitplane, colour burst
   cop_move(&c, REG(bplcon1), 0x0000);
   cop_move(&c, REG(bplcon2), 0x0000);
-  cop_move(&c, REG(bplcon3), 0x0000); /* AGA: bank 0, 12-bit writes */
+  cop_move(&c, REG(bplcon3), 0x0000);  // AGA: bank 0, 12-bit writes
   cop_move(&c, REG(bplcon4), 0x0011);
   cop_move(&c, REG(bpl1mod), 0x0000);
   cop_move(&c, REG(bpl2mod), 0x0000);
-  cop_move(&c, REG(diwstrt), 0x2c81); /* standard PAL 320x256      */
+  cop_move(&c, REG(diwstrt), 0x2c81);  // standard PAL 320x256
   cop_move(&c, REG(diwstop), 0x2cc1);
   cop_move(&c, REG(ddfstrt), 0x0038);
   cop_move(&c, REG(ddfstop), 0x00d0);
@@ -169,14 +165,13 @@ static uint16_t* build_copper(uint16_t* buffer, size_t words,
   return cop_done(&c) ? bpl1pt : nullptr;
 }
 
-/* ------------------------------------------------------------------ */
-/* Input and arguments.                                                */
+// --- Input and arguments ---
 
 static bool left_mouse_pressed(void) {
   return !(CIAA->ciapra & CIAF_GAMEPORT0);
 }
 
-/* Leading decimal number in the CLI arguments, or 0 if there is none. */
+// Leading decimal number in the CLI arguments, or 0 if there is none.
 static uint32_t parse_frames(const char* args, uint32_t length) {
   uint32_t n = 0;
   uint32_t i = 0;
@@ -190,18 +185,20 @@ static uint32_t parse_frames(const char* args, uint32_t length) {
   return n;
 }
 
-/* ------------------------------------------------------------------ */
-/* The demo.                                                           */
+// --- The demo ---
 
+/* Plain int where width does not matter (coordinates, counters); fixed
+ * widths where hardware or the CLI defines them (registers, frames). */
 struct box {
   int x, y;
 };
 
-static void run(uint8_t* planes[BUFFERS], uint16_t* bpl1pt, uint32_t frames) {
+static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
+                        uint32_t frames) {
   struct box pos = {START_X, START_Y};
-  struct box drawn[BUFFERS]; /* where each buffer has the box */
+  struct box drawn[BUFFERS];  // where each buffer has the box
   int dx = SPEED_X, dy = SPEED_Y;
-  int back = 0; /* buffer being drawn, not shown */
+  int back = 0;  // buffer being drawn, not shown
   uint32_t frame;
   int i;
 
@@ -213,7 +210,7 @@ static void run(uint8_t* planes[BUFFERS], uint16_t* bpl1pt, uint32_t frames) {
   blit_wait();
 
   for (frame = 0; frames == 0 || frame < frames; frame++) {
-    wait_frame();
+    frame_wait();
     if (left_mouse_pressed()) {
       DBG("demo1: mouse button at frame %lu\n", frame);
       break;
@@ -258,7 +255,7 @@ int32_t demo_main(const char* args, uint32_t length) {
   int32_t rc;
   int i;
 
-  /* --- OS phase: libraries, memory, loading ----------------------- */
+  // --- OS phase: libraries, memory, loading ---
   rc = sys_init(&sys);
   if (rc) {
     return rc;
@@ -268,20 +265,20 @@ int32_t demo_main(const char* args, uint32_t length) {
   }
   copper = sys_alloc_chip(COPPER_WORDS * sizeof(uint16_t));
   if (!planes[0] || !planes[1] || !copper) {
-    rc = 20;
+    rc = SYS_RETURN_FAIL;
     goto out;
   }
   bpl1pt = build_copper(copper, COPPER_WORDS, planes[0]);
   if (!bpl1pt) {
     DBG("demo1: copper list overflows its %lu-word buffer\n",
         (uint32_t)COPPER_WORDS);
-    rc = 20;
+    rc = SYS_RETURN_FAIL;
     goto out;
   }
   DBG("demo1: frames=%lu vbr=%p planes=%p,%p copper=%p\n", frames,
       (void*)sys.vbr, planes[0], planes[1], copper);
 
-  /* --- hardware phase: no OS calls between these two lines -------- */
+  // --- hardware phase: no OS calls between these two lines ---
   sys_takeover(&sys);
 
   old_vector = *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3);
@@ -292,17 +289,17 @@ int32_t demo_main(const char* args, uint32_t length) {
       DMAF_SETCLR | DMAF_MASTER | DMAF_RASTER | DMAF_COPPER | DMAF_BLITTER;
   CUSTOM->intena = INTF_SETCLR | INTF_INTEN | INTF_VERTB;
 
-  run(planes, bpl1pt, frames);
+  bounce_loop(planes, bpl1pt, frames);
 
   CUSTOM->intena = INTF_INTEN | INTF_VERTB;
   CUSTOM->intreq = INTF_VERTB;
   *(volatile uintptr_t*)(sys.vbr + VECTOR_LEVEL3) = old_vector;
 
   sys_restore(&sys);
-  /* --- OS phase again ----------------------------------------------- */
+  // --- OS phase again ---
 
   DBG("demo1: done after %lu frames\n", frame_counter);
-  rc = 0;
+  rc = SYS_RETURN_OK;
 out:
   sys_free_chip(copper, COPPER_WORDS * sizeof(uint16_t));
   for (i = 0; i < BUFFERS; i++) {

@@ -37,12 +37,12 @@ static inline void dbg_printf(const char* fmt, ...) {
     }
     s++;
     if (*s == '%') {
-      continue; /* literal percent */
+      continue;  // literal percent
     }
     if (*s == '\0') {
       break;
     }
-    *DBG_ARG_PORT = va_arg(ap, uint32_t); /* one argument per conversion */
+    *DBG_ARG_PORT = va_arg(ap, uint32_t);  // one argument per conversion
   }
   va_end(ap);
   *DBG_FMT_PORT = (uintptr_t)fmt;
@@ -50,6 +50,6 @@ static inline void dbg_printf(const char* fmt, ...) {
 
 #define DBG(...) dbg_printf(__VA_ARGS__)
 
-#endif /* NDEBUG */
+#endif  // NDEBUG
 
 #endif

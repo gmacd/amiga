@@ -12,9 +12,9 @@
 #include <stdint.h>
 
 struct copper {
-  uint16_t* next; /* next free word */
-  uint16_t* end;  /* one past the buffer's last word */
-  bool overflow;  /* an instruction did not fit */
+  uint16_t* next;  // next free word
+  uint16_t* end;   // one past the buffer's last word
+  bool overflow;   // an instruction did not fit
 };
 
 static inline struct copper cop_begin(uint16_t* buffer, size_t words) {
@@ -22,7 +22,7 @@ static inline struct copper cop_begin(uint16_t* buffer, size_t words) {
       .next = buffer, .end = buffer + words, .overflow = false};
 }
 
-/* Reserve `words` words, or record the overflow and return nullptr. */
+// Reserve `words` words, or record the overflow and return nullptr.
 static inline uint16_t* cop_reserve(struct copper* c, size_t words) {
   if (c->overflow || (size_t)(c->end - c->next) < words) {
     c->overflow = true;
@@ -33,7 +33,7 @@ static inline uint16_t* cop_reserve(struct copper* c, size_t words) {
   return p;
 }
 
-/* MOVE value to custom register `reg`, a REG() offset. */
+// MOVE value to custom register `reg`, a REG() offset.
 static inline void cop_move(struct copper* c, uint16_t reg, uint16_t value) {
   uint16_t* p = cop_reserve(c, 2);
   if (p) {

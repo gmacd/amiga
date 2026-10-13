@@ -1,8 +1,8 @@
-/* hardware.h -- chip register bases shared by the OS boundary and the demo. */
+// hardware.h -- chip register bases shared by the OS boundary and the demo.
 #ifndef HARDWARE_H
 #define HARDWARE_H
 
-#include <exec/types.h> /* the NDK hardware headers need it */
+#include <exec/types.h>  // the NDK hardware headers need it
 #include <hardware/blit.h>
 #include <hardware/cia.h>
 #include <hardware/custom.h>
@@ -24,8 +24,8 @@ static_assert(REG(bplcon0) == 0x100, "struct Custom matches the hardware");
 
 /* Whole-register masks for the set/clear registers. Bit 15 is SET/CLR, so
  * writing these without it clears everything. */
-static constexpr uint16_t INTF_ALL_SOURCES = 0x7fff; /* INTENA, INTREQ   */
-static constexpr uint16_t DMAF_ALL_BITS = 0x7fff;    /* DMACON           */
+static constexpr uint16_t INTF_ALL_SOURCES = 0x7fff;  // INTENA, INTREQ
+static constexpr uint16_t DMAF_ALL_BITS = 0x7fff;     // DMACON
 
 /* The DMACON bits a program can set, as read back from DMACONR: every
  * channel, the master enable and blitter priority. Bits 11-14 are status
@@ -33,7 +33,7 @@ static constexpr uint16_t DMAF_ALL_BITS = 0x7fff;    /* DMACON           */
 static constexpr uint16_t DMAF_WRITABLE = DMAF_ALL | DMAF_MASTER | DMAF_BLITHOG;
 static_assert(DMAF_WRITABLE == 0x07ff, "DMACON writable bits");
 
-/* Autovector level 3 (VERTB/COPER/BLIT) exception vector offset. */
+// Autovector level 3 (VERTB/COPER/BLIT) exception vector offset.
 static constexpr uintptr_t VECTOR_LEVEL3 = 0x6c;
 
 #endif
