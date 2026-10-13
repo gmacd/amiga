@@ -96,7 +96,7 @@ static void blit_wait(void) {
 }
 
 // Zero a whole bitplane: D channel only, minterm 0.
-static void blit_clear(uint8_t* plane) {
+static void blit_clear(uint8_t plane[static PLANE_SIZE]) {
   blit_wait();
   CUSTOM->bltcon0 = BC0F_DEST;  // D only, minterm 0: write zeros
   CUSTOM->bltcon1 = 0;
@@ -111,7 +111,8 @@ static void blit_clear(uint8_t* plane) {
  * the box's horizontal extent, C reads the existing plane, D writes it:
  * D = op(A, C), with A set where the box is.
  * The box spans one word when 16-pixel aligned, two otherwise. */
-static void blit_box(uint8_t* plane, int32_t x, int32_t y, enum box_op op) {
+static void blit_box(uint8_t plane[static PLANE_SIZE], int32_t x, int32_t y,
+                     enum box_op op) {
   int32_t shift = x & 15;
   uint16_t nwords = shift ? 2 : 1;
   uint16_t fwm = (uint16_t)(0xffff >> shift);
@@ -187,8 +188,8 @@ struct box {
   int32_t x, y;
 };
 
-static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
-                        uint32_t frames) {
+static void bounce_loop(uint8_t* const planes[static BUFFERS],
+                        uint16_t bpl1pt[static 4], uint32_t frames) {
   struct box pos = {.x = START_X, .y = START_Y};
   struct box drawn[BUFFERS];  // where each buffer has the box
 
@@ -241,7 +242,7 @@ static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
 /* Everything between allocation and freeing: build the display, take the
  * machine, run, give it back. Early returns are safe here because
  * demo_main() owns the memory. */
-static int32_t demo_run(struct sys* sys, uint8_t* planes[BUFFERS],
+static int32_t demo_run(struct sys* sys, uint8_t* const planes[static BUFFERS],
                         uint16_t* copper, uint32_t frames) {
   if (!planes[0] || !planes[1] || !copper) {
     return SYS_RETURN_FAIL;

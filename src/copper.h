@@ -53,8 +53,8 @@ static inline void cop_wait(struct copper* c, uint16_t x, uint16_t y) {
 }
 
 /* Patch a 32-bit address into the two value words of a pointer pair
- * emitted by cop_move_ptr(). */
-static inline void cop_set_ptr(uint16_t* pair, const void* address) {
+ * emitted by cop_move_ptr(): two MOVEs, four words. */
+static inline void cop_set_ptr(uint16_t pair[static 4], const void* address) {
   pair[1] = (uint16_t)((uintptr_t)address >> 16);
   pair[3] = (uint16_t)((uintptr_t)address & 0xffff);
 }
