@@ -3,6 +3,7 @@
 #define HARDWARE_H
 
 #include <exec/types.h> /* the NDK hardware headers need it */
+#include <hardware/blit.h>
 #include <hardware/cia.h>
 #include <hardware/custom.h>
 #include <hardware/dmabits.h>

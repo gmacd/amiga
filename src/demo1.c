@@ -54,10 +54,12 @@ static constexpr uint16_t COLOR_RED = 0x0f00;
  * a capacity with headroom, not a count to keep in step. */
 static constexpr size_t COPPER_WORDS = 64;
 
-/* Blitter minterms for blit_box(), as the ABC truth table (bit 7 = ABC
- * down to bit 0 = ~A~B~C): D = A | C sets, D = ~A & C clears. */
-static constexpr uint16_t LF_A_OR_C = 0b1111'1010;
-static constexpr uint16_t LF_NOTA_AND_C = 0b0000'1010;
+/* Blitter minterms for blit_box(), from hardware/blit.h's truth-table
+ * terms (ABC = A and B and C, NABC = not-A and B and C, ...). B is unused,
+ * so each term appears with B both set and clear. */
+static constexpr uint16_t LF_SET = A_OR_C;         /* D = A | C  */
+static constexpr uint16_t LF_CLEAR = NABC | NANBC; /* D = ~A & C */
+static_assert(LF_SET == 0xfa && LF_CLEAR == 0x0a, "minterms");
 
 /* ------------------------------------------------------------------ */
 /* VBlank interrupt.                                                   */
@@ -104,7 +106,7 @@ static void blit_wait(void) {
 /* Zero a whole bitplane: D channel only, minterm 0. */
 static void blit_clear(uint8_t* plane) {
   blit_wait();
-  CUSTOM->bltcon0 = 0x0100; /* USED, minterm 0        */
+  CUSTOM->bltcon0 = BC0F_DEST; /* D only, minterm 0: write zeros */
   CUSTOM->bltcon1 = 0;
   CUSTOM->bltdpt = plane;
   CUSTOM->bltdmod = 0;
@@ -127,7 +129,7 @@ static void blit_box(uint8_t* plane, int x, int y, bool fill) {
   uint8_t* addr = plane + y * ROW_BYTES + ((x >> 4) << 1);
 
   blit_wait();
-  CUSTOM->bltcon0 = 0x0300 | (fill ? LF_A_OR_C : LF_NOTA_AND_C); /* USEC|USED */
+  CUSTOM->bltcon0 = BC0F_SRCC | BC0F_DEST | (fill ? LF_SET : LF_CLEAR);
   CUSTOM->bltcon1 = 0;
   CUSTOM->bltafwm = fwm;
   CUSTOM->bltalwm = lwm;
