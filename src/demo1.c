@@ -26,19 +26,19 @@
 
 // --- Screen geometry: PAL lo-res, one bitplane, two buffers ---
 
-static constexpr int WIDTH = 320;
-static constexpr int HEIGHT = 256;
-static constexpr int ROW_BYTES = WIDTH / 8;
-static constexpr int ROW_WORDS = WIDTH / 16;
-static constexpr int PLANE_SIZE = ROW_BYTES * HEIGHT;
-static constexpr int BUFFERS = 2;
+static constexpr int32_t WIDTH = 320;
+static constexpr int32_t HEIGHT = 256;
+static constexpr int32_t ROW_BYTES = WIDTH / 8;
+static constexpr int32_t ROW_WORDS = WIDTH / 16;
+static constexpr int32_t PLANE_SIZE = ROW_BYTES * HEIGHT;
+static constexpr int32_t BUFFERS = 2;
 
 // The bouncing box.
-static constexpr int BOX = 16;
-static constexpr int START_X = 40;
-static constexpr int START_Y = 30;
-static constexpr int SPEED_X = 3;
-static constexpr int SPEED_Y = 2;
+static constexpr int32_t BOX = 16;
+static constexpr int32_t START_X = 40;
+static constexpr int32_t START_Y = 30;
+static constexpr int32_t SPEED_X = 3;
+static constexpr int32_t SPEED_Y = 2;
 
 static_assert(WIDTH % 16 == 0, "bitplane rows must be whole words");
 static_assert(BOX == 16, "blit_box masks assume a 16-pixel-wide box");
@@ -117,8 +117,8 @@ static void blit_clear(uint8_t* plane) {
  *   fill:  D = A | C
  *   clear: D = ~A & C
  * The box spans one word when 16-pixel aligned, two otherwise. */
-static void blit_box(uint8_t* plane, int x, int y, bool fill) {
-  int shift = x & 15;
+static void blit_box(uint8_t* plane, int32_t x, int32_t y, bool fill) {
+  int32_t shift = x & 15;
   uint16_t nwords = shift ? 2 : 1;
   uint16_t fwm = (uint16_t)(0xffff >> shift);
   uint16_t lwm = shift ? (uint16_t)(0xffff << (16 - shift)) : 0xffff;
@@ -187,20 +187,20 @@ static uint32_t parse_frames(const char* args, uint32_t length) {
 
 // --- The demo ---
 
-/* Plain int where width does not matter (coordinates, counters); fixed
- * widths where hardware or the CLI defines them (registers, frames). */
+// int32_t, the 68020's native width, for coordinates and counters; the
+// hardware's own widths for registers (uint16_t) and addresses (uintptr_t).
 struct box {
-  int x, y;
+  int32_t x, y;
 };
 
 static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
                         uint32_t frames) {
   struct box pos = {START_X, START_Y};
   struct box drawn[BUFFERS];  // where each buffer has the box
-  int dx = SPEED_X, dy = SPEED_Y;
-  int back = 0;  // buffer being drawn, not shown
+  int32_t dx = SPEED_X, dy = SPEED_Y;
+  int32_t back = 0;  // buffer being drawn, not shown
   uint32_t frame;
-  int i;
+  int32_t i;
 
   for (i = 0; i < BUFFERS; i++) {
     blit_clear(planes[i]);
@@ -253,7 +253,7 @@ int32_t demo_main(const char* args, uint32_t length) {
   uint32_t frames = parse_frames(args, length);
   uintptr_t old_vector;
   int32_t rc;
-  int i;
+  int32_t i;
 
   // --- OS phase: libraries, memory, loading ---
   rc = sys_init(&sys);
