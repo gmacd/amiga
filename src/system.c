@@ -3,8 +3,8 @@
  *
  * This is the only file that calls the operating system. See system.h for
  * the call order the demo follows. The `_start` stub must be the first code
- * in the text hunk: this file is linked first and the stub precedes every
- * include, with -fno-toplevel-reorder keeping it in place.
+ * in the text hunk: it is emitted into its own .text.start section, which
+ * link.ld places first.
  */
 
 /*
@@ -16,7 +16,7 @@
  */
 // clang-format off
 __asm__(
-    "    .text\n"
+    "    .section .text.start\n"
     "    .globl _start\n"
     "_start:\n"
     "    movem.l d2-d7/a2-a6,-(sp)\n"
@@ -27,6 +27,7 @@ __asm__(
     "    movem.l (sp)+,d2-d7/a2-a6\n"
     "    rts\n"
     "\n"
+    "    .text\n"
     "| uintptr_t read_vbr(struct ExecBase *sysbase): the vector base register.\n"
     "| MOVEC is privileged, so the read runs under exec's Supervisor()\n"
     "| (LVO -30, function in a5, ends with RTE). The NDK's inline wrapper\n"

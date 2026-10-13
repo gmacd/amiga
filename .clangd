@@ -29,7 +29,6 @@ CompileFlags:
     - -Wno-pointer-sign
   Remove:
     - -m68020
-    - -fno-toplevel-reorder
     - -fno-tree-loop-distribute-patterns
     - -fanalyzer
     - -Wstack-usage=*

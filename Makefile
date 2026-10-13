@@ -44,18 +44,16 @@ DOCKER  = docker run --rm --platform linux/amd64 --user $(shell id -u):$(shell i
           -v "$(CURDIR):/src" -w /src $(IMAGE)
 CC      = $(DOCKER) m68k-amigaos-gcc
 
-# Freestanding: no libc or startup code. system.c carries the entry stub
-# and is linked first so the stub is at the top of the text hunk;
-# -fno-toplevel-reorder keeps it there, and applies to system.c only since
-# it also stops GCC dropping unreferenced constexpr objects (see
-# STUB_CFLAGS). -fno-tree-loop-distribute-patterns stops GCC turning the
-# mem.h loops into memset/memcpy calls. -m68020 is the A1200's CPU (native
-# 32-bit multiply). -lgcc covers any helper GCC still emits (64-bit
-# arithmetic, division on 68000 builds).
+# Freestanding: no libc or startup code. system.c's entry stub sits in its
+# own .text.start section, which link.ld places at the top of the text
+# hunk. -fno-tree-loop-distribute-patterns stops GCC turning the mem.h loops
+# into memset/memcpy calls. -m68020 is the A1200's CPU (native 32-bit
+# multiply). -lgcc covers any helper GCC still emits (64-bit arithmetic,
+# division on 68000 builds).
 CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=c23 -nostdlib -nostartfiles \
           -ffreestanding -fno-tree-loop-distribute-patterns \
           $(WARNINGS)
-STUB_CFLAGS = -fno-toplevel-reorder
+LDSCRIPT = link.ld
 
 # Warnings are errors. -fanalyzer is GCC's static analyser; -Wstack-usage
 # bounds any one function's frame, since the demo shares the CLI's stack
@@ -102,12 +100,11 @@ all: $(BIN)
 
 # The link map lists every function and object with its size: the first
 # place to look when the binary grows.
-$(BIN): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDLIBS) -Wl,-Map=$(MAP)
+$(BIN): $(OBJS) $(LDSCRIPT)
+	$(CC) $(CFLAGS) -T $(LDSCRIPT) $(OBJS) -o $@ $(LDLIBS) -Wl,-Map=$(MAP)
 
-$(BUILD)/system.o: STUB = $(STUB_CFLAGS)
 $(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
-	$(CC) $(CFLAGS) $(STUB) $(DEPFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 -include $(OBJS:.o=.d)
 

@@ -26,9 +26,8 @@ struct View;
 
 /* CLI return codes (AmigaDOS RETURN_OK and RETURN_FAIL, checked against
  * dos/dos.h in system.c so the demo side needs no NDK header). */
-/* An enum rather than constexpr objects: system.c builds with
- * -fno-toplevel-reorder, which would emit unused objects as data. */
-enum : int32_t { SYS_RETURN_OK = 0, SYS_RETURN_FAIL = 20 };
+static constexpr int32_t SYS_RETURN_OK = 0;
+static constexpr int32_t SYS_RETURN_FAIL = 20;
 
 struct sys {
   struct GfxBase* gfx;
