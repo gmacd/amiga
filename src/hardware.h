@@ -33,6 +33,16 @@ static constexpr uint16_t DMAF_ALL_BITS = 0x7fff;     // DMACON
 static constexpr uint16_t DMAF_WRITABLE = DMAF_ALL | DMAF_MASTER | DMAF_BLITHOG;
 static_assert(DMAF_WRITABLE == 0x07ff, "DMACON writable bits");
 
+/* Marks an exception handler: GCC's m68k backend saves every register the
+ * body uses and returns with RTE. Host tools (clangd, clang-tidy) parse the
+ * code as i386, where gnu::interrupt means the x86 attribute with different
+ * rules, so it expands to nothing there. */
+#ifdef __m68k__
+#define INTERRUPT_HANDLER [[gnu::interrupt]]
+#else
+#define INTERRUPT_HANDLER
+#endif
+
 // Autovector level 3 (VERTB/COPER/BLIT) exception vector offset.
 static constexpr uintptr_t VECTOR_LEVEL3 = 0x6c;
 

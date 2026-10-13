@@ -63,26 +63,18 @@ static_assert(LF_SET == 0xfa && LF_CLEAR == 0x0a, "minterms");
 // --- VBlank interrupt ---
 
 // Bumped once per frame by the level 3 handler; the main loop waits on it.
-volatile uint32_t frame_counter;
+static volatile uint32_t frame_counter;
 
 /* Level 3 autovector handler. Only VERTB is enabled at this level, but the
  * request bit is checked anyway. Acknowledged twice: a single INTREQ write
- * can be missed on fast 68040/060 machines (the A4000 quirk). Touches no
- * registers, so nothing needs saving. */
-// clang-format off
-__asm__(
-    "    .text\n"
-    "    .globl _vblank_handler\n"
-    "_vblank_handler:\n"
-    "    btst    #5,0xdff01f\n"  // INTREQR bit 5: VERTB
-    "    beq.s   1f\n"
-    "    move.w  #0x0020,0xdff09c\n"  // INTREQ: clear VERTB
-    "    move.w  #0x0020,0xdff09c\n"
-    "    addq.l  #1,_frame_counter\n"
-    "1:  rte\n");
-// clang-format on
-
-extern void vblank_handler(void);
+ * can be missed on fast 68040/060 machines (the A4000 quirk). */
+INTERRUPT_HANDLER static void vblank_handler(void) {
+  if (CUSTOM->intreqr & INTF_VERTB) {
+    CUSTOM->intreq = INTF_VERTB;
+    CUSTOM->intreq = INTF_VERTB;
+    frame_counter++;
+  }
+}
 
 static void frame_wait(void) {
   uint32_t seen = frame_counter;
