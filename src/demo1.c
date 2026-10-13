@@ -195,7 +195,7 @@ struct box {
 
 static void bounce_loop(uint8_t* planes[BUFFERS], uint16_t* bpl1pt,
                         uint32_t frames) {
-  struct box pos = {START_X, START_Y};
+  struct box pos = {.x = START_X, .y = START_Y};
   struct box drawn[BUFFERS];  // where each buffer has the box
 
   for (int32_t i = 0; i < BUFFERS; i++) {
@@ -293,7 +293,7 @@ int32_t demo_main(const char* args, uint32_t length) {
     return rc;
   }
 
-  uint8_t* planes[BUFFERS] = {nullptr, nullptr};
+  uint8_t* planes[BUFFERS] = {};
   for (int32_t i = 0; i < BUFFERS; i++) {
     planes[i] = sys_alloc_chip(PLANE_SIZE);
   }

@@ -59,7 +59,6 @@ __asm__(
 #include <proto/graphics.h>
 
 #include "hardware.h"
-#include "mem.h"
 
 static_assert(SYS_RETURN_OK == RETURN_OK && SYS_RETURN_FAIL == RETURN_FAIL,
               "return codes match dos/dos.h");
@@ -96,7 +95,7 @@ int32_t entry(const char* args, uint32_t length) {
 }
 
 int32_t sys_init(struct sys* s) {
-  mem_set(s, 0, sizeof(*s));
+  *s = (struct sys){};
 
   GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
   if (!GfxBase) {
