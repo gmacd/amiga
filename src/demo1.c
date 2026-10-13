@@ -2,9 +2,11 @@
 //
 // Yellow background, a red 16x16 box bouncing off the screen edges, drawn
 // by the blitter into a double-buffered single bitplane, paced by a VBlank
-// interrupt. Runs until the left mouse button is pressed, or for N frames
-// when N is the command-line argument (headless runs), then hands the
-// machine back and returns 0 to the CLI (20 if setup fails).
+// interrupt. Runs until the left mouse button is pressed, or for FRAMES
+// frames when given as `demo1 [FRAMES [HOLD]]`. HOLD more frames then keep
+// the last picture still, so a headless screenshot taken during the hold
+// does not depend on how fast the program loaded. Hands the machine back
+// and returns 0 to the CLI (20 if setup fails).
 //
 // This file touches hardware only. The OS is used through the boundary in
 // system.h: before sys_takeover() and after sys_restore() only.
@@ -137,8 +139,8 @@ static void blit_box(uint8_t plane[static kPlaneSize], int32_t x, int32_t y,
 
 // Returns the MOVE pair holding the bitplane pointer, for flipping, or
 // nullptr if the list does not fit the buffer.
-static uint16_t* build_copper(uint16_t* buffer, size_t words,
-                              const uint8_t* plane) {
+[[nodiscard]] static uint16_t* build_copper(uint16_t* buffer, size_t words,
+                                            const uint8_t* plane) {
   struct copper c = cop_begin(buffer, words);
 
   cop_move(&c, REG(fmode), 0x0000);    // AGA: OCS-compatible fetch
@@ -166,19 +168,35 @@ static bool left_mouse_pressed(void) {
   return !(CIAA->ciapra & CIAF_GAMEPORT0);
 }
 
-// Leading decimal number in the CLI arguments. No number, or 0, means run
-// until the mouse button: UINT32_MAX frames, over two years at 50 Hz.
-static uint32_t parse_frames(const char* args, uint32_t length) {
-  uint32_t n = 0;
-  uint32_t i = 0;
+// The run length from the CLI arguments `[FRAMES [HOLD]]`.
+struct run_length {
+  uint32_t frames;  // frames of motion; UINT32_MAX means until the mouse
+  uint32_t hold;    // frames to keep the last picture still afterwards
+};
 
-  while (i < length && (args[i] == ' ' || args[i] == '\t')) {
-    i++;
+// The decimal number at args[*i], skipping leading blanks; 0 if there is
+// none. Saturates at UINT32_MAX rather than wrapping.
+static uint32_t parse_number(const char* args, uint32_t length, uint32_t* i) {
+  while (*i < length && (args[*i] == ' ' || args[*i] == '\t')) {
+    (*i)++;
   }
-  while (i < length && args[i] >= '0' && args[i] <= '9') {
-    n = n * 10 + (uint32_t)(args[i++] - '0');
+  uint32_t n = 0;
+  while (*i < length && args[*i] >= '0' && args[*i] <= '9') {
+    uint32_t digit = (uint32_t)(args[(*i)++] - '0');
+    n = n > (UINT32_MAX - digit) / 10 ? UINT32_MAX : n * 10 + digit;
   }
-  return n ? n : UINT32_MAX;
+  return n;
+}
+
+// No FRAMES, or 0, means run until the mouse button: UINT32_MAX frames,
+// over two years at 50 Hz.
+[[nodiscard]] static struct run_length parse_run_length(const char* args,
+                                                        uint32_t length) {
+  uint32_t i = 0;
+  uint32_t frames = parse_number(args, length, &i);
+  uint32_t hold = parse_number(args, length, &i);
+  return (struct run_length){.frames = frames != 0 ? frames : UINT32_MAX,
+                             .hold = hold};
 }
 
 // --- The demo ---
@@ -186,11 +204,12 @@ static uint32_t parse_frames(const char* args, uint32_t length) {
 // int32_t, the 68020's native width, for coordinates and counters; the
 // hardware's own widths for registers (uint16_t) and addresses (uintptr_t).
 struct box {
-  int32_t x, y;
+  int32_t x;
+  int32_t y;
 };
 
 static void bounce_loop(uint8_t* const planes[static kBuffers],
-                        uint16_t bpl1pt[static 4], uint32_t frames) {
+                        uint16_t bpl1pt[static 4], struct run_length run) {
   struct box pos = {.x = kStartX, .y = kStartY};
   struct box drawn[kBuffers];  // where each buffer has the box
 
@@ -204,7 +223,7 @@ static void bounce_loop(uint8_t* const planes[static kBuffers],
   int32_t dx = kSpeedX;
   int32_t dy = kSpeedY;
   int32_t back = 0;  // buffer being drawn, not shown
-  for (uint32_t frame = 0; frame < frames; frame++) {
+  for (uint32_t frame = 0; frame < run.frames; frame++) {
     frame_wait();
     if (left_mouse_pressed()) {
       DBG("demo1: mouse button at frame %lu\n", frame);
@@ -238,29 +257,37 @@ static void bounce_loop(uint8_t* const planes[static kBuffers],
     back = (back + 1) % kBuffers;
   }
   blit_wait();
+
+  // Hold: nothing moves, but the mouse button still ends the run.
+  for (uint32_t frame = 0; frame < run.hold; frame++) {
+    frame_wait();
+    if (left_mouse_pressed()) {
+      break;
+    }
+  }
 }
 
 // Everything between allocation and freeing: build the display, take the
 // machine, run, give it back. Early returns are safe here because
 // demo_main() owns the memory.
 static int32_t demo_run(struct sys* sys, uint8_t* const planes[static kBuffers],
-                        uint16_t* copper, uint32_t frames) {
+                        uint16_t* copper, struct run_length run) {
   for (int32_t i = 0; i < kBuffers; i++) {
-    if (!planes[i]) {
+    if (planes[i] == nullptr) {
       return kSysReturnFail;
     }
   }
-  if (!copper) {
+  if (copper == nullptr) {
     return kSysReturnFail;
   }
   uint16_t* bpl1pt = build_copper(copper, kCopperWords, planes[0]);
-  if (!bpl1pt) {
+  if (bpl1pt == nullptr) {
     DBG("demo1: copper list overflows its %lu-word buffer\n",
         (uint32_t)kCopperWords);
     return kSysReturnFail;
   }
-  DBG("demo1: frames=%lu vbr=%p copper=%p\n", frames, (void*)sys->vbr,
-      (void*)copper);
+  DBG("demo1: frames=%lu hold=%lu vbr=%p copper=%p\n", run.frames, run.hold,
+      (void*)sys->vbr, (void*)copper);
   for (int32_t i = 0; i < kBuffers; i++) {
     DBG("demo1: plane %ld at %p\n", i, (void*)planes[i]);
   }
@@ -276,7 +303,7 @@ static int32_t demo_run(struct sys* sys, uint8_t* const planes[static kBuffers],
       DMAF_SETCLR | DMAF_MASTER | DMAF_RASTER | DMAF_COPPER | DMAF_BLITTER;
   CUSTOM->intena = INTF_SETCLR | INTF_INTEN | INTF_VERTB;
 
-  bounce_loop(planes, bpl1pt, frames);
+  bounce_loop(planes, bpl1pt, run);
 
   CUSTOM->intena = INTF_INTEN | INTF_VERTB;
   CUSTOM->intreq = INTF_VERTB;
@@ -303,7 +330,7 @@ int32_t demo_main(const char* args, uint32_t length) {
   }
   uint16_t* copper = sys_alloc_chip(kCopperWords * sizeof(uint16_t));
 
-  rc = demo_run(&sys, planes, copper, parse_frames(args, length));
+  rc = demo_run(&sys, planes, copper, parse_run_length(args, length));
 
   sys_free_chip(copper, kCopperWords * sizeof(uint16_t));
   for (int32_t i = 0; i < kBuffers; i++) {

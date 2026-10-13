@@ -35,7 +35,7 @@ static inline uint16_t* cop_reserve(struct copper* c, size_t words) {
 // MOVE value to custom register `reg`, a REG() offset.
 static inline void cop_move(struct copper* c, uint16_t reg, uint16_t value) {
   uint16_t* p = cop_reserve(c, 2);
-  if (p) {
+  if (p != nullptr) {
     p[0] = reg;
     p[1] = value;
   }
@@ -45,7 +45,7 @@ static inline void cop_move(struct copper* c, uint16_t reg, uint16_t value) {
 // Lines past 255 need a wait at (0, 255) first, the usual copper trick.
 static inline void cop_wait(struct copper* c, uint16_t x, uint16_t y) {
   uint16_t* p = cop_reserve(c, 2);
-  if (p) {
+  if (p != nullptr) {
     p[0] = (uint16_t)((y << 8) | (x & 0xfe) | 1);
     p[1] = 0xfffe;
   }
@@ -64,7 +64,7 @@ static inline void cop_set_ptr(uint16_t pair[static 4], const void* address) {
 static inline uint16_t* cop_move_ptr(struct copper* c, uint16_t reg,
                                      const void* address) {
   uint16_t* p = cop_reserve(c, 4);
-  if (p) {
+  if (p != nullptr) {
     p[0] = reg;
     p[2] = (uint16_t)(reg + 2);
     cop_set_ptr(p, address);
@@ -76,7 +76,7 @@ static inline uint16_t* cop_move_ptr(struct copper* c, uint16_t reg,
 // list, terminator included, did not fit its buffer.
 [[nodiscard]] static inline bool cop_done(struct copper* c) {
   uint16_t* p = cop_reserve(c, 2);
-  if (p) {
+  if (p != nullptr) {
     p[0] = 0xffff;
     p[1] = 0xfffe;
   }

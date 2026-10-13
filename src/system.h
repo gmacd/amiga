@@ -6,9 +6,11 @@
 //
 //   sys_init          OS calls allowed: libraries opened, VBR known
 //   sys_alloc_chip    OS calls allowed: chip memory for planes and copper
-//   sys_takeover      --- OS parked, interrupts and DMA off ---
+//   sys_takeover      --- floppies idle, Forbid(), OS parked,
+//                         interrupts and DMA off ---
 //        hardware only from here: no OS call of any kind
-//   sys_restore       --- OS back: display, DMA and interrupts restored ---
+//   sys_restore       --- OS back: display, DMA, interrupts, ADKCON
+//                         restored, Permit() ---
 //   sys_free_chip     OS calls allowed again
 //   sys_exit
 //
@@ -34,6 +36,7 @@ struct sys {
   struct View* old_view;
   uint16_t old_dmacon;
   uint16_t old_intena;
+  uint16_t old_adkcon;
 };
 
 // Open libraries and read the VBR. Returns kSysReturnOk, or a CLI
@@ -44,13 +47,16 @@ struct sys {
 [[nodiscard]] void* sys_alloc_chip(size_t bytes);
 void sys_free_chip(void* p, size_t bytes);
 
-// Park the OS display and switch every interrupt and DMA channel off.
-// After this the demo owns the machine.
+// Let the floppies finish and stop their motors, stop multitasking, take the
+// blitter from the OS, park its display and switch every interrupt and DMA
+// channel off, saving DMACON, INTENA and ADKCON. After this the demo owns
+// the machine.
 void sys_takeover(struct sys* s);
 
-// Give the machine back: OS copper list, saved DMA and interrupt enables,
-// previous view. The demo must have switched its own interrupt sources
-// off and finished its blits first.
+// Give the machine back: clear the interrupt requests the demo raised,
+// restore ADKCON, the OS copper list, the saved DMA and interrupt enables
+// and the previous view, then the blitter and multitasking. The demo must have
+// switched its own interrupt sources off and finished its blits first.
 void sys_restore(struct sys* s);
 
 void sys_exit(struct sys* s);

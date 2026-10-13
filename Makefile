@@ -3,9 +3,10 @@
 #
 #   make           build build/demo1
 #   make run       open Copperline (A1200, bundled AROS ROM) and run it
-#   make test      headless: run 300 frames, check two screenshots and the
-#                  debug output, expect exit status 0 (the CLI return code)
-#   make bless     regenerate the expected screenshots from a fresh run
+#   make test      headless: move the box, hold it still, check a screenshot
+#                  taken during the hold and the debug output, expect exit
+#                  status 0 (the CLI return code)
+#   make bless     regenerate the expected screenshot from a fresh run
 #   make adf       build/demo1.adf: a bootable 880K floppy image
 #   make test-adf  boot that floppy headless, check a screenshot, exit via
 #                  a scheduled mouse click (bless with make bless-adf)
@@ -14,7 +15,9 @@
 #   make tidy      clang-tidy checks from .clangd (braces around statements)
 #   make check-style   fail on bare int/short/long/unsigned or __attribute__
 #   make lint      check-format, tidy and check-style together
-#   make tools-image   build the local image the three targets above use
+#   make tools-image   build the image the four targets above use; they
+#                  build it themselves when it is missing or the Dockerfile
+#                  changes
 #   make ndk       copy the NDK headers out of the image into ndk-include/
 #                  for editor navigation (see .clangd); gitignored
 #   make clean
@@ -22,8 +25,9 @@
 # Variables: COPPERLINE (binary), MODEL (A1200), ROM (a Kickstart image;
 # empty = bundled AROS), CC (a host m68k-amigaos-gcc instead of Docker),
 # NDEBUG=1 (compile the DBG() debug output out).
-# The blessed screenshots depend on boot timing, so they match the default
-# ROM only; re-bless after changing ROM or MODEL.
+# The test screenshot is taken while the box is held still, so it does not
+# depend on load time; the floppy one does (a floppy boot passes no
+# arguments), so re-bless it with bless-adf after the binary changes size.
 
 # Recipes that tee a log set pipefail first, so a failing Copperline run is
 # not hidden behind the tee (bash: Apple's make 3.81 lacks .SHELLFLAGS).
@@ -34,7 +38,9 @@ COPPERLINE_CTL ?= ../Copperline/target/release/copperline-ctl
 MODEL      ?= A1200
 ROM        ?=
 
-IMAGE   = stefanreinauer/amiga-gcc:gcc-v16.2
+# The compiler image, pinned by digest: the gcc-v16.2 tag can move. Also the
+# base of the tools image (Dockerfile), so both always match.
+IMAGE   = stefanreinauer/amiga-gcc@sha256:c98a0c0bf72d69c4b60334ac3eaafd3e1e63ddca9dfd0a2353f4e17ec284b5c5
 # Format/lint tools (Dockerfile): the compiler image plus clang-format and
 # clang-tidy, built locally once with `make tools-image`.
 TOOLS_IMAGE = demo1-tools
@@ -46,10 +52,11 @@ CC      = $(DOCKER) m68k-amigaos-gcc
 
 # Freestanding: no libc or startup code. system.c's entry stub sits in its
 # own .text.start section, which link.ld places at the top of the text
-# hunk. -fno-tree-loop-distribute-patterns stops GCC turning the mem.h loops
-# into memset/memcpy calls. -m68020 is the A1200's CPU (native 32-bit
-# multiply). -lgcc covers any helper GCC still emits (64-bit arithmetic,
-# division on 68000 builds).
+# hunk. -fno-tree-loop-distribute-patterns stops GCC turning byte loops into
+# memset/memcpy calls, which nothing here provides. -m68020 is the A1200's
+# CPU (native 32-bit multiply). -lgcc covers any helper GCC still emits
+# (64-bit arithmetic, division on 68000 builds). c23 is strict ISO, so the
+# top-level asm blocks are spelt __asm__.
 CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=c23 -nostdlib -nostartfiles \
           -ffreestanding -fno-tree-loop-distribute-patterns \
           $(WARNINGS)
@@ -57,7 +64,7 @@ LDSCRIPT = link.ld
 
 # Warnings are errors. -fanalyzer is GCC's static analyser; -Wstack-usage
 # bounds any one function's frame, since the demo shares the CLI's stack
-# with its interrupt handler. c23: the top-level asm is spelt __asm__ for strict ISO mode.
+# with its interrupt handler.
 WARNINGS = -Werror -Wall -Wextra -Wpedantic \
            -Wconversion -Wsign-conversion -Wshadow \
            -Wcast-qual -Wcast-align=strict -Wpointer-arith -Wwrite-strings -Wundef \
@@ -85,16 +92,20 @@ ADF     = $(BUILD)/demo1.adf
 # exactly the objects that use it.
 DEPFLAGS = -MMD -MP
 
-# Headless test: the program runs TEST_FRAMES frames (6 s PAL) and returns
-# 0, which --exit-on-return turns into Copperline's exit status. Screenshots
-# are checked mid-run; the bounding screenshot at BOUND_AT only fires if the
-# program never returns, which ends the run with status 4.
-TEST_FRAMES = 300
-SHOT_A      = 5
-SHOT_B      = 8
+# Headless test: the program moves the box for TEST_FRAMES frames, holds it
+# still for TEST_HOLD more and returns 0, which --exit-on-return turns into
+# Copperline's exit status. The program loads at about 3 s, so the hold runs
+# from about 5 s to 8 s; SHOT falls in the middle of it, which leaves a
+# second or more of margin either way for load-time changes. The bounding
+# screenshot at BOUND_AT only fires if the program never returns, which
+# ends the run with status 4.
+TEST_FRAMES = 100
+TEST_HOLD   = 150
+SHOT        = 6.5
 BOUND_AT    = 40
 RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run $(BIN) \
-              --run-args $(TEST_FRAMES) --exit-on-return --native-screenshots
+              --run-args "$(TEST_FRAMES) $(TEST_HOLD)" --exit-on-return \
+              --native-screenshots
 
 all: $(BIN)
 
@@ -116,9 +127,8 @@ run: $(BIN)
 
 test: $(BIN)
 	set -o pipefail; $(COPPERLINE) $(RUN_FLAGS) \
-	    --expect-screenshot $(SHOT_A) test_images/expected-a.png \
-	    --expect-screenshot $(SHOT_B) test_images/expected-b.png \
-	    --screenshot-after $(BOUND_AT) test_images/end.png 2>&1 | tee $(BUILD)/test.log
+	    --expect-screenshot $(SHOT) test_images/expected.png \
+	    --screenshot-after $(BOUND_AT) $(BUILD)/end.png 2>&1 | tee $(BUILD)/test.log
 	@grep -q "DBG: demo1: done after" $(BUILD)/test.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
 	@echo "demo1: PASS"
 
@@ -135,26 +145,25 @@ ADF_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) \
 
 adf: $(ADF)
 
-$(ADF): $(BIN)
+$(ADF): $(BIN) | $(BUILD)
 	$(COPPERLINE_CTL) exe2adf $(BIN) --boot --out $@
 
 test-adf: $(ADF)
 	set -o pipefail; $(COPPERLINE) $(ADF_FLAGS) \
 	    --expect-screenshot $(ADF_SHOT) test_images/expected-adf.png \
-	    --screenshot-after $(ADF_END) test_images/end.png 2>&1 | tee $(BUILD)/test-adf.log
+	    --screenshot-after $(ADF_END) $(BUILD)/end.png 2>&1 | tee $(BUILD)/test-adf.log
 	@grep -q "DBG: demo1: done after" $(BUILD)/test-adf.log || { echo "demo1: FAIL (no debug output)"; exit 1; }
 	@echo "demo1: PASS (floppy)"
 
 bless-adf: $(ADF)
 	$(COPPERLINE) $(ADF_FLAGS) \
 	    --screenshot-after $(ADF_SHOT) test_images/expected-adf.png \
-	    --screenshot-after $(ADF_END) test_images/end.png
+	    --screenshot-after $(ADF_END) $(BUILD)/end.png
 
 bless: $(BIN)
 	$(COPPERLINE) $(RUN_FLAGS) \
-	    --screenshot-after $(SHOT_A) test_images/expected-a.png \
-	    --screenshot-after $(SHOT_B) test_images/expected-b.png \
-	    --screenshot-after $(BOUND_AT) test_images/end.png
+	    --screenshot-after $(SHOT) test_images/expected.png \
+	    --screenshot-after $(BOUND_AT) $(BUILD)/end.png
 
 SOURCES = $(wildcard $(SRC)/*.c $(SRC)/*.h)
 
@@ -173,28 +182,38 @@ TIDY_FLAGS = --target=i386-unknown-none -std=c23 -ffreestanding \
              -U__SIZE_TYPE__ '-D__SIZE_TYPE__=long unsigned int' \
              -U__PTRDIFF_TYPE__ '-D__PTRDIFF_TYPE__=long'
 
-check-style:
+# Editor support: the NDK headers live only in the image, so copy them
+# out once. host-shim/ replaces the proto/ headers for host tools. Defined
+# before any rule names it: make expands prerequisites as it reads them.
+NDK_DIR = ndk-include
+
+# The tools image, rebuilt when the Dockerfile changes. The stamp file
+# records the build, since make cannot see inside Docker.
+TOOLS_STAMP = $(BUILD)/tools-image.stamp
+
+tools-image: $(TOOLS_STAMP)
+
+$(TOOLS_STAMP): Dockerfile | $(BUILD)
+	docker build --platform linux/amd64 --build-arg IMAGE=$(IMAGE) \
+	    -t $(TOOLS_IMAGE) .
+	touch $@
+
+check-style: $(TOOLS_STAMP)
 	$(TOOLS) tools/check-style.sh $(SOURCES)
 
 lint: check-format tidy check-style
 
-tools-image: Dockerfile
-	docker build --platform linux/amd64 -t $(TOOLS_IMAGE) .
-
-format:
+format: $(TOOLS_STAMP)
 	$(TOOLS) clang-format --style=file -i $(SOURCES)
 
-check-format:
+check-format: $(TOOLS_STAMP)
 	$(TOOLS) clang-format --style=file --dry-run -Werror $(SOURCES)
 
-tidy: | $(NDK_DIR)
+tidy: $(TOOLS_STAMP) | $(NDK_DIR)
 	$(TOOLS) clang-tidy --quiet --warnings-as-errors='*' \
 	    --checks=-*,readability-braces-around-statements \
 	    $(wildcard $(SRC)/*.c) -- $(TIDY_FLAGS)
 
-# Editor support: the NDK headers live only in the image, so copy them
-# out once. host-shim/ replaces the proto/ headers for host tools.
-NDK_DIR = ndk-include
 $(NDK_DIR) ndk:
 	docker create --platform linux/amd64 --name demo1-ndk $(IMAGE) >/dev/null
 	docker cp demo1-ndk:/opt/amiga-16.2/m68k-amigaos/$(NDK_DIR) ./$(NDK_DIR)

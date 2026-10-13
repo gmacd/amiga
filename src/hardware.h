@@ -2,6 +2,7 @@
 #pragma once
 
 #include <exec/types.h>  // the NDK hardware headers need it
+#include <hardware/adkbits.h>
 #include <hardware/blit.h>
 #include <hardware/cia.h>
 #include <hardware/custom.h>
@@ -25,6 +26,7 @@ static_assert(REG(bplcon0) == 0x100, "struct Custom matches the hardware");
 // writing these without it clears everything.
 static constexpr uint16_t kIntfAllSources = 0x7fff;  // INTENA, INTREQ
 static constexpr uint16_t kDmafAllBits = 0x7fff;     // DMACON
+static constexpr uint16_t kAdkconAllBits = 0x7fff;   // ADKCON
 
 // The DMACON bits a program can set, as read back from DMACONR: every
 // channel, the master enable and blitter priority. Bits 11-14 are status

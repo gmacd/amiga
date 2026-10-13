@@ -44,8 +44,10 @@ __asm__(
 
 #include "system.h"
 
+#include <devices/trackdisk.h>
 #include <dos/dosextens.h>
 #include <exec/execbase.h>
+#include <exec/io.h>
 #include <exec/memory.h>
 #include <exec/ports.h>
 #include <exec/types.h>
@@ -81,7 +83,7 @@ int32_t entry(const char* args, uint32_t length) {
 
   int32_t rc = demo_main(args, length);
 
-  if (wb_msg) {
+  if (wb_msg != nullptr) {
     Forbid();
     ReplyMsg(wb_msg);
   }
@@ -92,7 +94,7 @@ int32_t sys_init(struct sys* s) {
   *s = (struct sys){};
 
   GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
-  if (!GfxBase) {
+  if (GfxBase == nullptr) {
     return kSysReturnFail;
   }
   s->gfx = GfxBase;
@@ -109,12 +111,53 @@ void* sys_alloc_chip(size_t bytes) {
 }
 
 void sys_free_chip(void* p, size_t bytes) {
-  if (p) {
+  if (p != nullptr) {
     FreeMem(p, bytes);
   }
 }
 
+// Let every floppy drive finish its I/O and switch its motor off. Asking
+// trackdisk.device (a TD_MOTOR off request per unit) rather than writing
+// CIA-B directly means the request waits behind any transfer already queued,
+// and trackdisk's own record of the motor stays right. Without this a
+// floppy-launched demo keeps the drive running for its whole length, since
+// trackdisk's motor-off timer needs the interrupts the takeover disables.
+// Units that fail to open have no drive, and are skipped.
+static void floppies_quiesce(void) {
+  struct MsgPort* port = CreateMsgPort();
+  if (port == nullptr) {
+    return;
+  }
+  struct IOStdReq* io =
+      (struct IOStdReq*)CreateIORequest(port, sizeof(struct IOStdReq));
+  if (io != nullptr) {
+    for (uint32_t unit = 0; unit < NUMUNITS; unit++) {
+      if (OpenDevice(TD_NAME, unit, (struct IORequest*)io, 0) == 0) {
+        io->io_Command = TD_MOTOR;
+        io->io_Length = 0;  // 0 = motor off
+        DoIO((struct IORequest*)io);
+        CloseDevice((struct IORequest*)io);
+      }
+    }
+    DeleteIORequest((struct IORequest*)io);
+  }
+  DeleteMsgPort(port);
+}
+
 void sys_takeover(struct sys* s) {
+  // OS phase still: these calls may wait, and Wait() would break a Forbid().
+  floppies_quiesce();
+
+  // No other task runs from here until sys_restore() permits it again.
+  // WaitTOF() and OwnBlitter() below can still wait, which lets other tasks
+  // run briefly; that window closes once interrupts are off.
+  Forbid();
+
+  // Take the blitter from the OS and let any blit it started finish, so
+  // switching DMA off below cannot cut one short.
+  OwnBlitter();
+  WaitBlit();
+
   s->old_view = s->gfx->ActiView;
   LoadView(nullptr);
   WaitTOF();
@@ -122,6 +165,7 @@ void sys_takeover(struct sys* s) {
 
   s->old_dmacon = CUSTOM->dmaconr;
   s->old_intena = CUSTOM->intenar;
+  s->old_adkcon = CUSTOM->adkconr;
   CUSTOM->intena = kIntfAllSources;  // every interrupt source off
   CUSTOM->intreq = kIntfAllSources;  // and nothing left pending
   CUSTOM->dmacon = kDmafAllBits;     // every DMA channel off
@@ -129,6 +173,14 @@ void sys_takeover(struct sys* s) {
 
 void sys_restore(struct sys* s) {
   CUSTOM->dmacon = kDmafAllBits;
+  CUSTOM->intena = kIntfAllSources;
+  // Drop every request the demo's hardware raised (blitter done, copper,
+  // CIAs...), or the OS's handlers take them as spurious interrupts the
+  // moment their sources are enabled again.
+  CUSTOM->intreq = kIntfAllSources;
+  CUSTOM->adkcon = kAdkconAllBits;
+  CUSTOM->adkcon = ADKF_SETCLR | s->old_adkcon;
+
   CUSTOM->cop1lc = (uintptr_t)s->gfx->copinit;
   CUSTOM->copjmp1 = 0;
   CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & kDmafWritable);
@@ -136,10 +188,12 @@ void sys_restore(struct sys* s) {
   LoadView(s->old_view);
   WaitTOF();
   WaitTOF();
+  DisownBlitter();
+  Permit();
 }
 
 void sys_exit(struct sys* s) {
-  if (s->gfx) {
+  if (s->gfx != nullptr) {
     CloseLibrary((struct Library*)s->gfx);
   }
   s->gfx = nullptr;

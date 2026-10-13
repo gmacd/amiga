@@ -25,13 +25,19 @@
 #define DBG_ARG_PORT ((volatile uint32_t*)0xbfff00)
 #define DBG_FMT_PORT ((volatile uint32_t*)0xbfff04)
 
+// The type 16-bit arguments arrive as after the default promotions (int),
+// named without spelling a bare integer type.
+typedef typeof(+(uint16_t)0) dbg_promoted16;
+
 // gnu::format makes GCC check every DBG() call's arguments against its
-// format string, as for printf.
+// format string, as for printf. Each argument is read back as the type it
+// was passed as: a pointer for %p, %s and %b, uint32_t with the l length
+// modifier, the promoted 16-bit type otherwise.
 [[gnu::format(printf, 1, 2)]] static inline void dbg_printf(const char* fmt,
                                                             ...) {
   va_list ap;
   va_start(ap, fmt);
-  for (const char* s = fmt; *s; s++) {
+  for (const char* s = fmt; *s != '\0'; s++) {
     if (*s != '%') {
       continue;
     }
@@ -39,10 +45,25 @@
     if (*s == '%') {
       continue;  // literal percent
     }
+    // Flags, width and precision.
+    while (*s == '-' || *s == '+' || *s == ' ' || *s == '#' || *s == '.' ||
+           (*s >= '0' && *s <= '9')) {
+      s++;
+    }
+    bool is_long = *s == 'l';
+    if (is_long) {
+      s++;
+    }
     if (*s == '\0') {
       break;
     }
-    *DBG_ARG_PORT = va_arg(ap, uint32_t);  // one argument per conversion
+    if (*s == 'p' || *s == 's' || *s == 'b') {
+      *DBG_ARG_PORT = (uintptr_t)va_arg(ap, const void*);
+    } else if (is_long) {
+      *DBG_ARG_PORT = va_arg(ap, uint32_t);
+    } else {
+      *DBG_ARG_PORT = (uint32_t)va_arg(ap, dbg_promoted16);
+    }
   }
   va_end(ap);
   *DBG_FMT_PORT = (uintptr_t)fmt;
