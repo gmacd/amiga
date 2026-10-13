@@ -31,7 +31,7 @@ static constexpr int32_t HEIGHT = 256;
 static constexpr int32_t ROW_BYTES = WIDTH / 8;
 static constexpr int32_t ROW_WORDS = WIDTH / 16;
 static constexpr int32_t PLANE_SIZE = ROW_BYTES * HEIGHT;
-static constexpr int32_t BUFFERS = 2;
+static constexpr int32_t BUFFERS = 2;  // drawn one frame, shown the next
 
 // The bouncing box.
 static constexpr int32_t BOX = 16;
@@ -45,6 +45,7 @@ static_assert(BOX == 16, "blit_box masks assume a 16-pixel-wide box");
 static_assert(START_X >= 0 && START_X + BOX <= WIDTH, "box starts on screen");
 static_assert(START_Y >= 0 && START_Y + BOX <= HEIGHT, "box starts on screen");
 static_assert(HEIGHT < 1024 && ROW_WORDS < 64, "plane fits one BLTSIZE blit");
+static_assert(BUFFERS >= 2, "drawing needs a buffer that is not on screen");
 
 static constexpr uint16_t COLOR_YELLOW = 0x0ff0;
 static constexpr uint16_t COLOR_RED = 0x0f00;
@@ -234,7 +235,7 @@ static void bounce_loop(uint8_t* const planes[static BUFFERS],
     blit_box(planes[back], pos.x, pos.y, BOX_SET);
     drawn[back] = pos;
     cop_set_ptr(bpl1pt, planes[back]);
-    back ^= 1;
+    back = (back + 1) % BUFFERS;
   }
   blit_wait();
 }
@@ -244,7 +245,12 @@ static void bounce_loop(uint8_t* const planes[static BUFFERS],
  * demo_main() owns the memory. */
 static int32_t demo_run(struct sys* sys, uint8_t* const planes[static BUFFERS],
                         uint16_t* copper, uint32_t frames) {
-  if (!planes[0] || !planes[1] || !copper) {
+  for (int32_t i = 0; i < BUFFERS; i++) {
+    if (!planes[i]) {
+      return SYS_RETURN_FAIL;
+    }
+  }
+  if (!copper) {
     return SYS_RETURN_FAIL;
   }
   uint16_t* bpl1pt = build_copper(copper, COPPER_WORDS, planes[0]);
@@ -253,8 +259,11 @@ static int32_t demo_run(struct sys* sys, uint8_t* const planes[static BUFFERS],
         (uint32_t)COPPER_WORDS);
     return SYS_RETURN_FAIL;
   }
-  DBG("demo1: frames=%lu vbr=%p planes=%p,%p copper=%p\n", frames,
-      (void*)sys->vbr, planes[0], planes[1], (void*)copper);
+  DBG("demo1: frames=%lu vbr=%p copper=%p\n", frames, (void*)sys->vbr,
+      (void*)copper);
+  for (int32_t i = 0; i < BUFFERS; i++) {
+    DBG("demo1: plane %ld at %p\n", i, (void*)planes[i]);
+  }
 
   // --- hardware phase: no OS calls between takeover and restore ---
   sys_takeover(sys);
