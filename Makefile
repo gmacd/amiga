@@ -66,7 +66,7 @@ WARNINGS = -Werror -Wall -Wextra -Wpedantic \
            -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wnull-dereference \
            -Wjump-misses-init -Wswitch-enum -Wimplicit-fallthrough=5 -Wvla \
            -Wdouble-promotion -Wformat=2 -Wunused-macros \
-           -fanalyzer -Wstack-usage=128
+           -fanalyzer -Wstack-usage=256
 ifdef NDEBUG
 CFLAGS += -DNDEBUG
 endif

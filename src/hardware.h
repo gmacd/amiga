@@ -21,6 +21,17 @@
 
 static_assert(REG(bplcon0) == 0x100, "struct Custom matches the hardware");
 
+/* Whole-register masks for the set/clear registers. Bit 15 is SET/CLR, so
+ * writing these without it clears everything. */
+static constexpr uint16_t INTF_ALL_SOURCES = 0x7fff; /* INTENA, INTREQ   */
+static constexpr uint16_t DMAF_ALL_BITS = 0x7fff;    /* DMACON           */
+
+/* The DMACON bits a program can set, as read back from DMACONR: every
+ * channel, the master enable and blitter priority. Bits 11-14 are status
+ * (blitter busy/zero) and must not be written back. */
+static constexpr uint16_t DMAF_WRITABLE = DMAF_ALL | DMAF_MASTER | DMAF_BLITHOG;
+static_assert(DMAF_WRITABLE == 0x07ff, "DMACON writable bits");
+
 /* Autovector level 3 (VERTB/COPER/BLIT) exception vector offset. */
 static constexpr uintptr_t VECTOR_LEVEL3 = 0x6c;
 

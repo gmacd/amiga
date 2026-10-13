@@ -16,6 +16,7 @@
  *   copperline --model A1200 --run demo1/build/demo1
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "copper.h"
@@ -49,8 +50,9 @@ static_assert(HEIGHT < 1024 && ROW_WORDS < 64, "plane fits one BLTSIZE blit");
 static constexpr uint16_t COLOR_YELLOW = 0x0ff0;
 static constexpr uint16_t COLOR_RED = 0x0f00;
 
-/* Words emitted by build_copper(): 16 MOVEs and the end marker. */
-static constexpr uint32_t COPPER_WORDS = 16 * 2 + 2;
+/* Copper list buffer, in words. build_copper() checks it fits, so this is
+ * a capacity with headroom, not a count to keep in step. */
+static constexpr size_t COPPER_WORDS = 64;
 
 /* Blitter minterms for blit_box(), as the ABC truth table (bit 7 = ABC
  * down to bit 0 = ~A~B~C): D = A | C sets, D = ~A & C clears. */
@@ -140,30 +142,29 @@ static void blit_box(uint8_t* plane, int x, int y, bool fill) {
 /* ------------------------------------------------------------------ */
 /* Copper list.                                                        */
 
-/* Returns the MOVE pair holding the bitplane pointer, for flipping. */
-static uint16_t* build_copper(uint16_t* cop, const uint8_t* plane) {
-  uint16_t* p = cop;
-  uint16_t* bpl1pt;
+/* Returns the MOVE pair holding the bitplane pointer, for flipping, or
+ * nullptr if the list does not fit the buffer. */
+static uint16_t* build_copper(uint16_t* buffer, size_t words,
+                              const uint8_t* plane) {
+  struct copper c = cop_begin(buffer, words);
 
-  p = cop_move(p, REG(fmode), 0x0000);   /* AGA: OCS-compatible fetch */
-  p = cop_move(p, REG(bplcon0), 0x1200); /* 1 bitplane, colour burst  */
-  p = cop_move(p, REG(bplcon1), 0x0000);
-  p = cop_move(p, REG(bplcon2), 0x0000);
-  p = cop_move(p, REG(bplcon3), 0x0000); /* AGA: bank 0, 12-bit writes */
-  p = cop_move(p, REG(bplcon4), 0x0011);
-  p = cop_move(p, REG(bpl1mod), 0x0000);
-  p = cop_move(p, REG(bpl2mod), 0x0000);
-  p = cop_move(p, REG(diwstrt), 0x2c81); /* standard PAL 320x256      */
-  p = cop_move(p, REG(diwstop), 0x2cc1);
-  p = cop_move(p, REG(ddfstrt), 0x0038);
-  p = cop_move(p, REG(ddfstop), 0x00d0);
-  bpl1pt = cop_move_ptr(p, REG(bplpt[0]), plane);
-  p = bpl1pt + 4;
-  p = cop_move(p, REG(color[0]), COLOR_YELLOW);
-  p = cop_move(p, REG(color[1]), COLOR_RED);
-  (void)cop_end(p);
+  cop_move(&c, REG(fmode), 0x0000);   /* AGA: OCS-compatible fetch */
+  cop_move(&c, REG(bplcon0), 0x1200); /* 1 bitplane, colour burst  */
+  cop_move(&c, REG(bplcon1), 0x0000);
+  cop_move(&c, REG(bplcon2), 0x0000);
+  cop_move(&c, REG(bplcon3), 0x0000); /* AGA: bank 0, 12-bit writes */
+  cop_move(&c, REG(bplcon4), 0x0011);
+  cop_move(&c, REG(bpl1mod), 0x0000);
+  cop_move(&c, REG(bpl2mod), 0x0000);
+  cop_move(&c, REG(diwstrt), 0x2c81); /* standard PAL 320x256      */
+  cop_move(&c, REG(diwstop), 0x2cc1);
+  cop_move(&c, REG(ddfstrt), 0x0038);
+  cop_move(&c, REG(ddfstop), 0x00d0);
+  uint16_t* bpl1pt = cop_move_ptr(&c, REG(bplpt[0]), plane);
+  cop_move(&c, REG(color[0]), COLOR_YELLOW);
+  cop_move(&c, REG(color[1]), COLOR_RED);
 
-  return bpl1pt;
+  return cop_done(&c) ? bpl1pt : nullptr;
 }
 
 /* ------------------------------------------------------------------ */
@@ -268,7 +269,13 @@ int32_t demo_main(const char* args, uint32_t length) {
     rc = 20;
     goto out;
   }
-  bpl1pt = build_copper(copper, planes[0]);
+  bpl1pt = build_copper(copper, COPPER_WORDS, planes[0]);
+  if (!bpl1pt) {
+    DBG("demo1: copper list overflows its %lu-word buffer\n",
+        (uint32_t)COPPER_WORDS);
+    rc = 20;
+    goto out;
+  }
   DBG("demo1: frames=%lu vbr=%p planes=%p,%p copper=%p\n", frames,
       (void*)sys.vbr, planes[0], planes[1], copper);
 

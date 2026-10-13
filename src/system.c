@@ -127,17 +127,17 @@ void sys_takeover(struct sys* s) {
 
   s->old_dmacon = CUSTOM->dmaconr;
   s->old_intena = CUSTOM->intenar;
-  CUSTOM->intena = 0x7fff; /* every interrupt source off */
-  CUSTOM->intreq = 0x7fff; /* and nothing left pending   */
-  CUSTOM->dmacon = 0x7fff; /* every DMA channel off      */
+  CUSTOM->intena = INTF_ALL_SOURCES; /* every interrupt source off */
+  CUSTOM->intreq = INTF_ALL_SOURCES; /* and nothing left pending   */
+  CUSTOM->dmacon = DMAF_ALL_BITS;    /* every DMA channel off      */
 }
 
 void sys_restore(struct sys* s) {
-  CUSTOM->dmacon = 0x7fff;
+  CUSTOM->dmacon = DMAF_ALL_BITS;
   CUSTOM->cop1lc = (uintptr_t)s->gfx->copinit;
   CUSTOM->copjmp1 = 0;
-  CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & 0x07ff);
-  CUSTOM->intena = INTF_SETCLR | (s->old_intena & 0x7fff);
+  CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & DMAF_WRITABLE);
+  CUSTOM->intena = INTF_SETCLR | (s->old_intena & INTF_ALL_SOURCES);
   LoadView(s->old_view);
   WaitTOF();
   WaitTOF();
