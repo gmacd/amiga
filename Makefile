@@ -1,7 +1,7 @@
 # demo1: bouncing red box on a yellow screen, built with the same dockerized
 # bebbo m68k-amigaos-gcc image that Copperline's guest/ programs use.
 #
-#   make           build build/demo1
+#   make           build build/demo1 and its Workbench icon demo1.info
 #   make run       open Copperline (A1200, bundled AROS ROM) and run it
 #   make test      headless: move the box, hold it still, check a screenshot
 #                  taken during the hold and the debug output, expect exit
@@ -50,17 +50,21 @@ DOCKER  = docker run --rm --platform linux/amd64 --user $(shell id -u):$(shell i
           -v "$(CURDIR):/src" -w /src $(IMAGE)
 CC      = $(DOCKER) m68k-amigaos-gcc
 
-# Freestanding: no libc or startup code. system.c's entry stub sits in its
+# Freestanding: no libc or startup code. system.c's start() sits in its
 # own .text.start section, which link.ld places at the top of the text
 # hunk. -fno-tree-loop-distribute-patterns stops GCC turning byte loops into
-# memset/memcpy calls, which nothing here provides. -m68020 is the A1200's
-# CPU (native 32-bit multiply). -lgcc covers any helper GCC still emits
+# memset/memcpy calls, which nothing here provides. -m68020 (CPU, below)
+# is the A1200's CPU (native 32-bit multiply). -lgcc covers any helper GCC still emits
 # (64-bit arithmetic, division on 68000 builds). c23 is strict ISO, so the
 # top-level asm blocks are spelt __asm__.
-CFLAGS  = -Os -m68020 -fomit-frame-pointer -std=c23 -nostdlib -nostartfiles \
+CFLAGS  = -Os $(CPU) -fomit-frame-pointer -std=c23 -nostdlib -nostartfiles \
           -ffreestanding -fno-tree-loop-distribute-patterns \
           $(WARNINGS)
 LDSCRIPT = link.ld
+# The demo is 68020 code; system.c is plain 68000 (below) so its CPU check
+# can refuse an A500 cleanly instead of crashing on the first 68020
+# instruction.
+CPU = -m68020
 
 # Warnings are errors. -fanalyzer is GCC's static analyser; -Wstack-usage
 # bounds any one function's frame, since the demo shares the CLI's stack
@@ -85,6 +89,9 @@ BIN     = $(BUILD)/demo1
 OBJS    = $(BUILD)/system.o $(BUILD)/demo1.o
 MAP     = $(BUILD)/demo1.map
 ADF     = $(BUILD)/demo1.adf
+ICON    = $(BUILD)/demo1.info
+
+$(BUILD)/system.o: CPU = -m68000
 
 # Header dependencies: each compile writes a .d file beside its object
 # (-MMD, user headers only; -MP adds phony targets so a deleted header
@@ -107,7 +114,7 @@ RUN_FLAGS   = --factory --noaudio --model $(MODEL) $(ROM) --run $(BIN) \
               --run-args "$(TEST_FRAMES) $(TEST_HOLD)" --exit-on-return \
               --native-screenshots
 
-all: $(BIN)
+all: $(BIN) $(ICON)
 
 # The link map lists every function and object with its size: the first
 # place to look when the binary grows.
@@ -118,6 +125,11 @@ $(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
 	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 -include $(OBJS:.o=.d)
+
+# Workbench tool icon: without one, Workbench does not show the program.
+# Copy it beside build/demo1 to start the demo from a Workbench window.
+$(ICON): tools/make-icon.py | $(BUILD)
+	$(DOCKER) python3 tools/make-icon.py $@
 
 $(BUILD):
 	mkdir -p $@

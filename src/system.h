@@ -14,7 +14,7 @@
 //   sys_free_chip     OS calls allowed again
 //   sys_exit
 //
-// The CLI/Workbench entry stub is also in system.c; it is the only
+// The CLI/Workbench entry point start() is also in system.c; it is the only
 // loader-specific code, so a bootblock or trackmo build replaces that file
 // and keeps demo1.c as is.
 #pragma once
@@ -61,9 +61,15 @@ void sys_restore(struct sys* s);
 
 void sys_exit(struct sys* s);
 
-// Loader side: called by the _start stub with the CLI argument string.
-int32_t entry(const char* args, uint32_t length);
+// Loader side: the program's first instruction. IN_REG() binds each
+// parameter to the register AmigaDOS passes it in.
+#ifdef __m68k__
+#define IN_REG(reg) __asm(reg)
+#else
+#define IN_REG(reg)  // host tools: plain parameters
+#endif
+int32_t start(const char* args IN_REG("a0"), uint32_t length IN_REG("d0"));
 
-// The demo's entry point, called by entry() with the CLI argument string
+// The demo's entry point, called by start() with the CLI argument string
 // (empty when started from Workbench). Returns the CLI return code.
 int32_t demo_main(const char* args, uint32_t length);

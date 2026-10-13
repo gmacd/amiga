@@ -18,7 +18,10 @@ struct copper {
 
 static inline struct copper cop_begin(uint16_t* buffer, size_t words) {
   return (struct copper){
-      .next = buffer, .end = buffer + words, .overflow = false};
+      .next = buffer,
+      .end = buffer + words,
+      .overflow = false,
+  };
 }
 
 // Reserve `words` words, or record the overflow and return nullptr.
@@ -41,9 +44,9 @@ static inline void cop_move(struct copper* c, uint16_t reg, uint16_t value) {
   }
 }
 
-// WAIT for beam position (x, y); x in low-res pixel pairs, y 0-255.
+// WAIT for beam position (x, y); x 0-254 in low-res pixel pairs (even only), y 0-255.
 // Lines past 255 need a wait at (0, 255) first, the usual copper trick.
-static inline void cop_wait(struct copper* c, uint16_t x, uint16_t y) {
+static inline void cop_wait(struct copper* c, uint8_t x, uint8_t y) {
   uint16_t* p = cop_reserve(c, 2);
   if (p != nullptr) {
     p[0] = (uint16_t)((y << 8) | (x & 0xfe) | 1);

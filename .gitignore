@@ -1,3 +1,4 @@
+.DS_Store
 build/
 test_images/*.actual.png
 test_images/*.diff.png

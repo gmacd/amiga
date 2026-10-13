@@ -1,28 +1,18 @@
 // system.c -- loader entry and the OS boundary for demo1.
 //
 // This is the only file that calls the operating system. See system.h for
-// the call order the demo follows. The `_start` stub must be the first code
-// in the text hunk: it is emitted into its own .text.start section, which
-// link.ld places first.
+// the call order the demo follows. start() must be the first code in the
+// text hunk: it is emitted into its own .text.start section, which link.ld
+// places first.
+//
+// The Makefile builds this file for the plain 68000, so start() can reject
+// an older CPU cleanly before any 68020 code (demo1.c) runs. read_vbr's
+// MOVEC is the one 68010 instruction, emitted as raw words since the
+// assembler is in 68000 mode; it only runs after AttnFlags says the CPU
+// has it.
 
-// CLI entry stub. AmigaDOS enters at the top of the first hunk with a0 =
-// argument bytes and d0 = their length. Preserve the shell's callee-saved
-// registers and call entry(args, length); its d0 result is the CLI return
-// code. A Workbench start enters the same way with meaningless a0/d0, which
-// entry() detects and ignores.
 // clang-format off
 __asm__(
-    "    .section .text.start\n"
-    "    .globl _start\n"
-    "_start:\n"
-    "    movem.l d2-d7/a2-a6,-(sp)\n"
-    "    move.l  d0,-(sp)\n"
-    "    move.l  a0,-(sp)\n"
-    "    jsr     _entry\n"
-    "    addq.l  #8,sp\n"
-    "    movem.l (sp)+,d2-d7/a2-a6\n"
-    "    rts\n"
-    "\n"
     "    .text\n"
     "| uintptr_t read_vbr(struct ExecBase *sysbase): the vector base register.\n"
     "| MOVEC is privileged, so the read runs under exec's Supervisor()\n"
@@ -38,7 +28,7 @@ __asm__(
     "    movem.l (sp)+,a5/a6\n"
     "    rts\n"
     "read_vbr_super:\n"
-    "    movec   vbr,d0\n"
+    "    .word   0x4e7a,0x0801       | movec vbr,d0 (68010+; file is 68000)\n"
     "    rte\n");
 // clang-format on
 
@@ -53,6 +43,7 @@ __asm__(
 #include <exec/types.h>
 #include <graphics/gfxbase.h>
 #include <graphics/view.h>
+#include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
 
@@ -62,14 +53,36 @@ static_assert(kSysReturnOk == RETURN_OK && kSysReturnFail == RETURN_FAIL,
               "return codes match dos/dos.h");
 
 struct ExecBase* SysBase;
+struct DosLibrary* DOSBase;
 struct GfxBase* GfxBase;
 
 extern uintptr_t read_vbr(struct ExecBase* sysbase);
 
-// Loader-side wrapper around demo_main(). Started from Workbench (no CLI
-// structure) the process must collect its startup message and reply to it
-// on exit, after Forbid(), so Workbench does not unload the code too early.
-int32_t entry(const char* args, uint32_t length) {
+// Print to the CLI window. A Workbench start has no output stream, and the
+// message is dropped.
+static void cli_print(const char* text, size_t length) {
+  DOSBase = (struct DosLibrary*)OpenLibrary("dos.library", 33);
+  if (DOSBase == nullptr) {
+    return;
+  }
+  BPTR out = Output();
+  if (out != 0) {
+    Write(out, text, (LONG)length);
+  }
+  CloseLibrary((struct Library*)DOSBase);
+  DOSBase = nullptr;
+}
+
+// AmigaDOS enters at the top of the first hunk with a0 = argument bytes and
+// d0 = their length, and takes the CLI return code from d0. The C calling
+// convention already preserves the shell's d2-d7/a2-a6, so no asm stub is
+// needed: the parameters are bound to the loader's registers instead.
+// Started from Workbench (no CLI structure), a0/d0 are meaningless; the
+// process must collect its startup message and reply to it on exit, after
+// Forbid(), so Workbench does not unload the code too early. The demo
+// itself is 68020 code, so a 68000 or 68010 gets a message and RETURN_FAIL.
+[[gnu::section(".text.start")]]
+int32_t start(const char* args IN_REG("a0"), uint32_t length IN_REG("d0")) {
   SysBase = *(struct ExecBase**)4;
 
   struct Process* self = (struct Process*)FindTask(nullptr);
@@ -81,7 +94,13 @@ int32_t entry(const char* args, uint32_t length) {
     length = 0;
   }
 
-  int32_t rc = demo_main(args, length);
+  int32_t rc = kSysReturnFail;
+  if (SysBase->AttnFlags & AFF_68020) {
+    rc = demo_main(args, length);
+  } else {
+    static constexpr char kNeeds68020[] = "demo1 needs a 68020 or better\n";
+    cli_print(kNeeds68020, sizeof kNeeds68020 - 1);
+  }
 
   if (wb_msg != nullptr) {
     Forbid();

@@ -1,6 +1,6 @@
 /* link.ld -- linker script for demo1: a freestanding hunk executable.
  *
- * Code first, with the _start entry stub (system.c, section .text.start)
+ * Code first, with the start() entry point (system.c, section .text.start)
  * at the very first byte, since AmigaDOS enters there. Placing it here,
  * rather than relying on -fno-toplevel-reorder, lets GCC drop unused
  * statics. Nothing else from the toolchain's default script is needed:
