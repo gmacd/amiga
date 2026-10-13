@@ -15,8 +15,7 @@
 // The CLI/Workbench entry stub is also in system.c; it is the only
 // loader-specific code, so a bootblock or trackmo build replaces that file
 // and keeps demo1.c as is.
-#ifndef SYSTEM_H
-#define SYSTEM_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -26,8 +25,8 @@ struct View;
 
 // CLI return codes (AmigaDOS RETURN_OK and RETURN_FAIL, checked against
 // dos/dos.h in system.c so the demo side needs no NDK header).
-static constexpr int32_t SYS_RETURN_OK = 0;
-static constexpr int32_t SYS_RETURN_FAIL = 20;
+static constexpr int32_t kSysReturnOk = 0;
+static constexpr int32_t kSysReturnFail = 20;
 
 struct sys {
   struct GfxBase* gfx;
@@ -37,7 +36,7 @@ struct sys {
   uint16_t old_intena;
 };
 
-// Open libraries and read the VBR. Returns SYS_RETURN_OK, or a CLI
+// Open libraries and read the VBR. Returns kSysReturnOk, or a CLI
 // return code to exit with.
 [[nodiscard]] int32_t sys_init(struct sys* s);
 
@@ -62,5 +61,3 @@ int32_t entry(const char* args, uint32_t length);
 // The demo's entry point, called by entry() with the CLI argument string
 // (empty when started from Workbench). Returns the CLI return code.
 int32_t demo_main(const char* args, uint32_t length);
-
-#endif

@@ -11,8 +11,7 @@
 // %ld/%lu/%lx for int32_t/uint32_t (unsigned long here), %p for pointers, %s
 // for strings. Each conversion consumes one 32-bit argument; '*' widths are not
 // supported.
-#ifndef DEBUG_H
-#define DEBUG_H
+#pragma once
 
 #ifdef NDEBUG
 
@@ -52,5 +51,3 @@
 #define DBG(...) dbg_printf(__VA_ARGS__)
 
 #endif  // NDEBUG
-
-#endif

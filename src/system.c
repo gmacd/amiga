@@ -56,7 +56,7 @@ __asm__(
 
 #include "hardware.h"
 
-static_assert(SYS_RETURN_OK == RETURN_OK && SYS_RETURN_FAIL == RETURN_FAIL,
+static_assert(kSysReturnOk == RETURN_OK && kSysReturnFail == RETURN_FAIL,
               "return codes match dos/dos.h");
 
 struct ExecBase* SysBase;
@@ -93,7 +93,7 @@ int32_t sys_init(struct sys* s) {
 
   GfxBase = (struct GfxBase*)OpenLibrary("graphics.library", 33);
   if (!GfxBase) {
-    return SYS_RETURN_FAIL;
+    return kSysReturnFail;
   }
   s->gfx = GfxBase;
 
@@ -101,7 +101,7 @@ int32_t sys_init(struct sys* s) {
   if (SysBase->AttnFlags & AFF_68010) {
     s->vbr = read_vbr(SysBase);
   }
-  return SYS_RETURN_OK;
+  return kSysReturnOk;
 }
 
 void* sys_alloc_chip(size_t bytes) {
@@ -122,17 +122,17 @@ void sys_takeover(struct sys* s) {
 
   s->old_dmacon = CUSTOM->dmaconr;
   s->old_intena = CUSTOM->intenar;
-  CUSTOM->intena = INTF_ALL_SOURCES;  // every interrupt source off
-  CUSTOM->intreq = INTF_ALL_SOURCES;  // and nothing left pending
-  CUSTOM->dmacon = DMAF_ALL_BITS;     // every DMA channel off
+  CUSTOM->intena = kIntfAllSources;  // every interrupt source off
+  CUSTOM->intreq = kIntfAllSources;  // and nothing left pending
+  CUSTOM->dmacon = kDmafAllBits;     // every DMA channel off
 }
 
 void sys_restore(struct sys* s) {
-  CUSTOM->dmacon = DMAF_ALL_BITS;
+  CUSTOM->dmacon = kDmafAllBits;
   CUSTOM->cop1lc = (uintptr_t)s->gfx->copinit;
   CUSTOM->copjmp1 = 0;
-  CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & DMAF_WRITABLE);
-  CUSTOM->intena = INTF_SETCLR | (s->old_intena & INTF_ALL_SOURCES);
+  CUSTOM->dmacon = DMAF_SETCLR | (s->old_dmacon & kDmafWritable);
+  CUSTOM->intena = INTF_SETCLR | (s->old_intena & kIntfAllSources);
   LoadView(s->old_view);
   WaitTOF();
   WaitTOF();

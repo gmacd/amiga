@@ -1,6 +1,5 @@
 // hardware.h -- chip register bases shared by the OS boundary and the demo.
-#ifndef HARDWARE_H
-#define HARDWARE_H
+#pragma once
 
 #include <exec/types.h>  // the NDK hardware headers need it
 #include <hardware/blit.h>
@@ -24,14 +23,14 @@ static_assert(REG(bplcon0) == 0x100, "struct Custom matches the hardware");
 
 // Whole-register masks for the set/clear registers. Bit 15 is SET/CLR, so
 // writing these without it clears everything.
-static constexpr uint16_t INTF_ALL_SOURCES = 0x7fff;  // INTENA, INTREQ
-static constexpr uint16_t DMAF_ALL_BITS = 0x7fff;     // DMACON
+static constexpr uint16_t kIntfAllSources = 0x7fff;  // INTENA, INTREQ
+static constexpr uint16_t kDmafAllBits = 0x7fff;     // DMACON
 
 // The DMACON bits a program can set, as read back from DMACONR: every
 // channel, the master enable and blitter priority. Bits 11-14 are status
 // (blitter busy/zero) and must not be written back.
-static constexpr uint16_t DMAF_WRITABLE = DMAF_ALL | DMAF_MASTER | DMAF_BLITHOG;
-static_assert(DMAF_WRITABLE == 0x07ff, "DMACON writable bits");
+static constexpr uint16_t kDmafWritable = DMAF_ALL | DMAF_MASTER | DMAF_BLITHOG;
+static_assert(kDmafWritable == 0x07ff, "DMACON writable bits");
 
 // Marks an exception handler: GCC's m68k backend saves every register the
 // body uses and returns with RTE. Host tools (clangd, clang-tidy) parse the
@@ -47,7 +46,7 @@ static_assert(DMAF_WRITABLE == 0x07ff, "DMACON writable bits");
 typedef void (*exception_handler)(void);
 
 // Autovector level 3 (VERTB/COPER/BLIT) exception vector offset.
-static constexpr uintptr_t VECTOR_LEVEL3 = 0x6c;
+static constexpr uintptr_t kVectorLevel3 = 0x6c;
 
 // The vector table slot at byte `offset` from the vector base `vbr`.
 // Base plus offset rather than indexing a table pointer: on a 68000 the
@@ -57,5 +56,3 @@ static inline exception_handler volatile* vector_slot(uintptr_t vbr,
                                                       uintptr_t offset) {
   return (exception_handler volatile*)(vbr + offset);
 }
-
-#endif

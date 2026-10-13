@@ -5,8 +5,7 @@
 // buffer, so emitting past it never writes out of bounds: it sets
 // `overflow` and drops the instruction. Check cop_done() once at the end
 // rather than counting words by hand.
-#ifndef COPPER_H
-#define COPPER_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -83,5 +82,3 @@ static inline uint16_t* cop_move_ptr(struct copper* c, uint16_t reg,
   }
   return !c->overflow;
 }
-
-#endif
