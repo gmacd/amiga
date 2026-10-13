@@ -12,8 +12,8 @@
 #   make format    clang-format the sources in place (.clang-format)
 #   make check-format  fail if any source is not formatted; for CI/hooks
 #   make tidy      clang-tidy checks from .clangd (braces around statements)
-#   make check-types   fail on bare int/short/long/unsigned in the sources
-#   make lint      check-format, tidy and check-types together
+#   make check-style   fail on bare int/short/long/unsigned or __attribute__
+#   make lint      check-format, tidy and check-style together
 #   make tools-image   build the local image the three targets above use
 #   make ndk       copy the NDK headers out of the image into ndk-include/
 #                  for editor navigation (see .clangd); gitignored
@@ -173,10 +173,10 @@ TIDY_FLAGS = --target=i386-unknown-none -std=c23 -ffreestanding \
              -U__SIZE_TYPE__ '-D__SIZE_TYPE__=long unsigned int' \
              -U__PTRDIFF_TYPE__ '-D__PTRDIFF_TYPE__=long'
 
-check-types:
-	$(TOOLS) tools/check-int-types.sh $(SOURCES)
+check-style:
+	$(TOOLS) tools/check-style.sh $(SOURCES)
 
-lint: check-format tidy check-types
+lint: check-format tidy check-style
 
 tools-image: Dockerfile
 	docker build --platform linux/amd64 -t $(TOOLS_IMAGE) .
@@ -203,4 +203,4 @@ $(NDK_DIR) ndk:
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all run test bless adf test-adf bless-adf format check-format tidy check-types lint tools-image ndk clean
+.PHONY: all run test bless adf test-adf bless-adf format check-format tidy check-style lint tools-image ndk clean
