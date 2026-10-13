@@ -26,7 +26,10 @@
 #define DBG_ARG_PORT ((volatile uint32_t*)0xbfff00)
 #define DBG_FMT_PORT ((volatile uint32_t*)0xbfff04)
 
-static inline void dbg_printf(const char* fmt, ...) {
+/* gnu::format makes GCC check every DBG() call's arguments against its
+ * format string, as for printf. */
+[[gnu::format(printf, 1, 2)]] static inline void dbg_printf(const char* fmt,
+                                                            ...) {
   va_list ap;
   va_start(ap, fmt);
   for (const char* s = fmt; *s; s++) {

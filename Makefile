@@ -160,11 +160,18 @@ SOURCES = $(wildcard $(SRC)/*.c $(SRC)/*.h)
 
 # clang-tidy parses as host clang does in the editor: 32-bit target, the
 # prototype-only host-shim/ in front of the NDK, GCC attribute macros
-# defined away. The checks come from .clangd (readability-braces-...).
+# defined away, integer types matched to m68k GCC (long-based int32_t,
+# uintptr_t, size_t). The checks come from .clangd (readability-braces-...).
 TIDY_FLAGS = --target=i386-unknown-none -std=c23 -ffreestanding \
              -Ihost-shim -Indk-include -D__stdargs= -D__regargs= -D__saveds= \
              -D__interrupt= -D__chip= -D__far= -D__near= -D__aligned= \
-             -Wno-unknown-attributes -Wno-pointer-sign
+             -Wno-unknown-attributes -Wno-pointer-sign \
+             -U__INT32_TYPE__ '-D__INT32_TYPE__=long' \
+             -U__UINT32_TYPE__ '-D__UINT32_TYPE__=long unsigned int' \
+             -U__INTPTR_TYPE__ '-D__INTPTR_TYPE__=long' \
+             -U__UINTPTR_TYPE__ '-D__UINTPTR_TYPE__=long unsigned int' \
+             -U__SIZE_TYPE__ '-D__SIZE_TYPE__=long unsigned int' \
+             -U__PTRDIFF_TYPE__ '-D__PTRDIFF_TYPE__=long'
 
 check-types:
 	$(TOOLS) tools/check-int-types.sh $(SOURCES)

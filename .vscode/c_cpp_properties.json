@@ -3,7 +3,22 @@
     {
       "name": "Amiga (host IntelliSense)",
       "compilerPath": "/usr/bin/clang",
-      "compilerArgs": ["--target=i386-unknown-none", "-ffreestanding"],
+      "compilerArgs": [
+        "--target=i386-unknown-none",
+        "-ffreestanding",
+        "-U__INT32_TYPE__",
+        "-D__INT32_TYPE__=long",
+        "-U__UINT32_TYPE__",
+        "-D__UINT32_TYPE__=long unsigned int",
+        "-U__INTPTR_TYPE__",
+        "-D__INTPTR_TYPE__=long",
+        "-U__UINTPTR_TYPE__",
+        "-D__UINTPTR_TYPE__=long unsigned int",
+        "-U__SIZE_TYPE__",
+        "-D__SIZE_TYPE__=long unsigned int",
+        "-U__PTRDIFF_TYPE__",
+        "-D__PTRDIFF_TYPE__=long"
+      ],
       "intelliSenseMode": "linux-clang-x86",
       "cStandard": "c23",
       "includePath": [

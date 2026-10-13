@@ -251,7 +251,7 @@ static int32_t demo_run(struct sys* sys, uint8_t* planes[BUFFERS],
     return SYS_RETURN_FAIL;
   }
   DBG("demo1: frames=%lu vbr=%p planes=%p,%p copper=%p\n", frames,
-      (void*)sys->vbr, planes[0], planes[1], copper);
+      (void*)sys->vbr, planes[0], planes[1], (void*)copper);
 
   // --- hardware phase: no OS calls between takeover and restore ---
   sys_takeover(sys);

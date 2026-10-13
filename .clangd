@@ -25,6 +25,21 @@ CompileFlags:
     - -D__far=
     - -D__near=
     - -D__aligned=
+    # Match m68k GCC's integer types: there int32_t, uintptr_t and size_t
+    # are long-based, on i386 int-based, which would make %lu in DBG()
+    # calls look wrong to the format checker.
+    - -U__INT32_TYPE__
+    - "-D__INT32_TYPE__=long"
+    - -U__UINT32_TYPE__
+    - "-D__UINT32_TYPE__=long unsigned int"
+    - -U__INTPTR_TYPE__
+    - "-D__INTPTR_TYPE__=long"
+    - -U__UINTPTR_TYPE__
+    - "-D__UINTPTR_TYPE__=long unsigned int"
+    - -U__SIZE_TYPE__
+    - "-D__SIZE_TYPE__=long unsigned int"
+    - -U__PTRDIFF_TYPE__
+    - "-D__PTRDIFF_TYPE__=long"
     - -Wno-unknown-attributes
     - -Wno-pointer-sign
   Remove:
