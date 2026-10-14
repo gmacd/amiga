@@ -24,6 +24,7 @@
 #
 # Variables: COPPERLINE (binary), MODEL (A1200), ROM (a Kickstart image;
 # empty = bundled AROS), CC (a host m68k-amigaos-gcc instead of Docker),
+# HOST_TOOLCHAIN=1 (compiler and clang tools from the host, no docker),
 # NDEBUG=1 (compile the DBG() debug output out).
 # The test screenshot is taken while the box is held still, so it does not
 # depend on load time; the floppy one does (a floppy boot passes no
@@ -210,6 +211,19 @@ $(TOOLS_STAMP): Dockerfile | $(BUILD)
 	    -t $(TOOLS_IMAGE) .
 	touch $@
 
+# HOST_TOOLCHAIN=1: the compiler, clang-format and clang-tidy are installed
+# on the host (the homelab's agent image carries the same pinned toolchain,
+# extracted from $(IMAGE)), so nothing is built or run in docker, and the
+# NDK headers are copied from the host's /opt/amiga instead of a scratch
+# container. Defined after TOOLS_STAMP, so these assignments win.
+HOST_TOOLCHAIN ?= 0
+ifeq ($(HOST_TOOLCHAIN),1)
+CC          = m68k-amigaos-gcc
+TOOLS       =
+TOOLS_STAMP =
+DOCKER      =
+endif
+
 check-style: $(TOOLS_STAMP)
 	$(TOOLS) tools/check-style.sh $(SOURCES)
 
@@ -227,9 +241,13 @@ tidy: $(TOOLS_STAMP) | $(NDK_DIR)
 	    $(wildcard $(SRC)/*.c) -- $(TIDY_FLAGS)
 
 $(NDK_DIR) ndk:
+ifeq ($(HOST_TOOLCHAIN),1)
+	cp -a /opt/amiga/m68k-amigaos/$(NDK_DIR) ./$(NDK_DIR)
+else
 	docker create --platform linux/amd64 --name demo1-ndk $(IMAGE) >/dev/null
 	docker cp demo1-ndk:/opt/amiga-16.2/m68k-amigaos/$(NDK_DIR) ./$(NDK_DIR)
 	docker rm demo1-ndk >/dev/null
+endif
 
 clean:
 	rm -rf $(BUILD)
